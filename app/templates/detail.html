@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile.name }} &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="/browse">&larr; Back to browse</a></p>
+
+<div class="detail-head">
+    <span class="detail-icon">{{ profile.icon or '📦' }}</span>
+    <div class="detail-head-text">
+        <div class="detail-title-row">
+            <h1>{{ profile.name }}</h1>
+            <span class="tier-badge tier-{{ profile.tier }}">{{ profile.tier }}</span>
+        </div>
+        {% if profile.vendor %}<div class="detail-vendor">{{ profile.vendor }}</div>{% endif %}
+        <div class="detail-meta">
+            <span>by {{ uploader }}</span>
+            {% if profile.category %}<span>&middot; {{ profile.category }}</span>{% endif %}
+            {% if latest_version_tag %}<span>&middot; v{{ latest_version_tag }}</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="detail-stats">
+    <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">imports</span></div>
+    <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">downloads</span></div>
+    <div class="stat"><span class="stat-num">0</span><span class="stat-label">score</span></div>
+</div>
+
+<section class="detail-section">
+    <h2>Description</h2>
+    <div class="markdown-body">
+        {% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">No description provided.</p>{% endif %}
+    </div>
+</section>
+
+<section class="detail-section">
+    <h2>Compatibility</h2>
+    <ul class="compat-list">
+        <li>Minimum Vesana version:
+            <strong>{{ profile.vesana_min_version or 'any' }}</strong></li>
+        <li>Requires agent:
+            <strong>{{ 'yes' if profile.requires_agent else 'no' }}</strong></li>
+        <li>Requires collector:
+            <strong>{{ 'yes' if profile.requires_collector else 'no' }}</strong></li>
+        <li>Requires SNMP:
+            <strong>{{ 'yes' if profile.requires_snmp else 'no' }}</strong></li>
+    </ul>
+</section>
+
+<section class="detail-section">
+    <h2>Checks ({{ check_preview | length }})</h2>
+    {% if check_preview %}
+    <ul class="check-list">
+        {% for check in check_preview %}
+        <li>
+            <span class="check-name">{{ check.name }}</span>
+            <span class="check-type">{{ check.check_type }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">This profile defines no preview-able checks.</p>
+    {% endif %}
+</section>
+
+{% if profile.tags %}
+<section class="detail-section">
+    <h2>Tags</h2>
+    <div class="card-tags">
+        {% for tag in profile.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if current_version and current_version.changelog_md %}
+<section class="detail-section">
+    <h2>Changelog (v{{ current_version.version_tag }})</h2>
+    <div class="markdown-body">{{ current_version.changelog_md | markdown_safe }}</div>
+</section>
+{% endif %}
+{% endblock %}

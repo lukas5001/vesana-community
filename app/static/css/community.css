@@ -145,3 +145,328 @@ code {
   text-align: center;
   padding: 0.9rem 1.25rem;
 }
+
+/* Profile library: browse + detail ---------------------------------------- */
+a {
+  color: var(--accent);
+}
+
+.signed-in {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 0 0 4px;
+}
+
+.lede {
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+/* Filters / search */
+.filters {
+  margin: 0 0 16px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.search-box,
+.select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.95rem;
+}
+
+.search-box {
+  flex: 1 1 280px;
+  min-width: 200px;
+}
+
+.btn {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-secondary));
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border-default));
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.btn:hover {
+  background: color-mix(in srgb, var(--accent) 32%, var(--bg-secondary));
+}
+
+.chips {
+  gap: 6px;
+}
+
+.chip-label {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.chip:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.chip-active {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
+}
+
+.result-count {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 4px 0 16px;
+}
+
+/* Tier badges (never color:#fff on a themed bg) */
+.tier-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+
+.tier-official,
+.chip-tier-official.chip-active {
+  color: color-mix(in srgb, var(--ok, #3fb950) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--ok, #3fb950) 18%, var(--bg-tertiary));
+  border-color: color-mix(in srgb, var(--ok, #3fb950) 45%, var(--border-default));
+}
+
+.tier-beta,
+.chip-tier-beta.chip-active {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default));
+}
+
+.tier-community,
+.chip-tier-community.chip-active {
+  color: color-mix(in srgb, var(--warn, #d29922) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--warn, #d29922) 18%, var(--bg-tertiary));
+  border-color: color-mix(in srgb, var(--warn, #d29922) 45%, var(--border-default));
+}
+
+/* Profile grid + cards */
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.profile-card {
+  display: block;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.profile-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.card-icon {
+  font-size: 1.6rem;
+}
+
+.card-name {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+}
+
+.card-vendor {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+
+.card-stats {
+  display: flex;
+  gap: 12px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+
+.empty-state {
+  color: var(--text-tertiary);
+  padding: 24px 0;
+}
+
+/* Detail page */
+.breadcrumb {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+}
+
+.detail-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.detail-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.detail-title-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.detail-title-row h1 {
+  margin: 0;
+}
+
+.detail-vendor {
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.detail-meta {
+  color: var(--text-tertiary);
+  font-size: 0.88rem;
+  margin-top: 6px;
+}
+
+.detail-stats {
+  display: flex;
+  gap: 24px;
+  margin: 16px 0 24px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-num {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.stat-label {
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-section {
+  border-top: 1px solid var(--border-default);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.detail-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+
+.markdown-body p {
+  margin: 0 0 10px;
+}
+
+.compat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.compat-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 60%, transparent);
+  color: var(--text-secondary);
+}
+
+.check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.check-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.check-name {
+  font-weight: 500;
+}
+
+.check-type {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-secondary));
+  font-size: 0.8rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}

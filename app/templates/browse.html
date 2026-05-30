@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Browse profiles &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+{% if instance %}
+<p class="signed-in">Signed in as <strong class="instance-name">{{ instance.display_name }}</strong></p>
+{% endif %}
+<h1>Browse monitoring profiles</h1>
+<p class="lede">Discover ready-made Vesana monitoring profiles. Import them into your instance in one click.</p>
+
+<form class="filters" method="get" action="/browse">
+    <div class="filters-row">
+        <input
+            class="search-box"
+            type="search"
+            name="q"
+            value="{{ q }}"
+            placeholder="Search profiles, vendors, tags…"
+            aria-label="Search profiles"
+        />
+        <select class="select" name="sort" aria-label="Sort by">
+            {% for option in sort_options %}
+            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>
+                {{ option | capitalize }}
+            </option>
+            {% endfor %}
+        </select>
+        <button class="btn" type="submit">Apply</button>
+    </div>
+
+    <div class="filters-row chips">
+        <span class="chip-label">Tier</span>
+        <a class="chip {% if not active_tier %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
+        {% for t in ['official', 'beta', 'community'] %}
+        <a class="chip chip-tier-{{ t }} {% if active_tier == t %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}tier={{ t }}&sort={{ active_sort }}">{{ t }}</a>
+        {% endfor %}
+    </div>
+
+    {% if categories %}
+    <div class="filters-row chips">
+        <span class="chip-label">Category</span>
+        <a class="chip {% if not active_category %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
+        {% for c in categories %}
+        <a class="chip {% if active_category == c %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}category={{ c }}&sort={{ active_sort }}">{{ c }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if vendors %}
+    <div class="filters-row chips">
+        <span class="chip-label">Vendor</span>
+        <a class="chip {% if not active_vendor %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
+        {% for v in vendors %}
+        <a class="chip {% if active_vendor == v %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}vendor={{ v }}&sort={{ active_sort }}">{{ v }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</form>
+
+<p class="result-count">{{ total }} profile{{ '' if total == 1 else 's' }} found</p>
+
+{% if profiles %}
+<div class="profile-grid">
+    {% for p in profiles %}
+    <a class="profile-card" href="/p/{{ p.id }}">
+        <div class="card-head">
+            <span class="card-icon">{{ p.icon or '📦' }}</span>
+            <span class="tier-badge tier-{{ p.tier }}">{{ p.tier }}</span>
+        </div>
+        <h3 class="card-name">{{ p.name }}</h3>
+        {% if p.vendor %}<div class="card-vendor">{{ p.vendor }}</div>{% endif %}
+        <div class="card-stats">
+            <span title="Imports">⤓ {{ p.import_count }}</span>
+            <span title="Downloads">↓ {{ p.download_count }}</span>
+            <span title="Score">★ {{ p.vote_score }}</span>
+        </div>
+        {% if p.tags %}
+        <div class="card-tags">
+            {% for tag in p.tags[:4] %}<span class="tag">{{ tag }}</span>{% endfor %}
+        </div>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">No profiles match your filters.</p>
+{% endif %}
+{% endblock %}
