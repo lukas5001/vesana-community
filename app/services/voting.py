@@ -12,14 +12,16 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.answer import Answer
 from app.models.community_profile import CommunityProfile
 from app.models.profile_comment import ProfileComment
+from app.models.question import Question
 from app.models.vote import Vote
 
-# All target types the unified votes table can carry. Only the two with a cached
-# score column are wired up so far; question/answer land in a later chunk.
+# All target types the unified votes table can carry. Every type with a cached
+# score column is wired up here (profile + comment in C4; question + answer C5).
 VALID_TARGET_TYPES = {"profile", "comment", "question", "answer"}
-_SCORED_TARGET_TYPES = {"profile", "comment"}
+_SCORED_TARGET_TYPES = {"profile", "comment", "question", "answer"}
 
 
 def _load_scored_target(db: Session, target_type: str, target_id: str):
@@ -37,6 +39,16 @@ def _load_scored_target(db: Session, target_type: str, target_id: str):
         row = db.get(ProfileComment, target_id)
         if row is None or row.is_removed:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+        return row
+    if target_type == "question":
+        row = db.get(Question, target_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+        return row
+    if target_type == "answer":
+        row = db.get(Answer, target_id)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Answer not found")
         return row
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,

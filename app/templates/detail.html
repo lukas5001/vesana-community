@@ -121,4 +121,29 @@
         {% endfor %}
     </ul>
 </section>
+
+<section class="detail-section related-questions-section">
+    <h2>Zugehörige Fragen ({{ related_questions | length }})</h2>
+    {% if not related_questions %}
+    <p class="muted">No questions reference this profile yet.</p>
+    {% else %}
+    <ul class="question-list">
+        {% for q in related_questions %}
+        <li class="question-row">
+            <div class="question-row__stats">
+                <span class="vote-pill" title="Score">{{ q.vote_score }}</span>
+                <span class="answer-count" title="Answers">{{ q.answer_count }} ans</span>
+            </div>
+            <div class="question-row__body">
+                <a class="question-title" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
+                <div class="question-row__meta">
+                    {% if q.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
+                    {% if q.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
 {% endblock %}

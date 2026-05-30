@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Questions &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+{% if instance %}
+<p class="signed-in">Signed in as <strong class="instance-name">{{ instance.display_name }}</strong></p>
+{% endif %}
+<h1>Community questions</h1>
+<p class="lede">Ask and answer questions about Vesana monitoring profiles, agents and setups.</p>
+
+{# TODO(client widget): asking, answering, voting and accepting controls land
+   with the client-side widget. Server-side this list is read-only. #}
+
+<form class="filters" method="get" action="/questions">
+    <div class="filters-row">
+        <input
+            class="search-box"
+            type="search"
+            name="search"
+            value="{{ search }}"
+            placeholder="Search questions, bodies, tags…"
+            aria-label="Search questions"
+        />
+        <select class="select" name="sort" aria-label="Sort by">
+            {% for option in sort_options %}
+            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>
+                {{ option | capitalize }}
+            </option>
+            {% endfor %}
+        </select>
+        <button class="btn" type="submit">Apply</button>
+    </div>
+
+    <div class="filters-row chips">
+        <span class="chip-label">Filter</span>
+        <a class="chip {% if not active_filter %}chip-active{% endif %}"
+           href="/questions?{% if search %}search={{ search }}&{% endif %}sort={{ active_sort }}">All</a>
+        {% for f in filter_options %}
+        <a class="chip {% if active_filter == f %}chip-active{% endif %}"
+           href="/questions?{% if search %}search={{ search }}&{% endif %}filter={{ f }}&sort={{ active_sort }}">{{ f }}</a>
+        {% endfor %}
+    </div>
+</form>
+
+<p class="result-count">{{ total }} question{{ '' if total == 1 else 's' }} found</p>
+
+{% if questions %}
+<ul class="question-list">
+    {% for q in questions %}
+    <li class="question-row">
+        <div class="question-row__stats">
+            <span class="vote-pill" title="Score">{{ q.vote_score }}</span>
+            <span class="answer-count{% if q.has_accepted %} answer-count--accepted{% endif %}"
+                  title="Answers">{{ q.answer_count }} ans</span>
+        </div>
+        <div class="question-row__body">
+            <a class="question-title" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
+            <div class="question-row__meta">
+                <span class="question-author">{{ q.author_display }}</span>
+                {% if q.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
+                {% if q.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
+                {% if q.has_accepted %}<span class="accepted-badge">✅ Accepted</span>{% endif %}
+            </div>
+            {% if q.tags %}
+            <div class="card-tags">
+                {% for tag in q.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">No questions match your filters.</p>
+{% endif %}
+{% endblock %}

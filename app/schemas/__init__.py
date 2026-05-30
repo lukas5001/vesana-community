@@ -1,8 +1,9 @@
 """Pydantic schemas package.
 
-The profile library schemas introduced in 0.2.0, plus the voting + comment
-schemas added in 0.3.0 (C4). Auth endpoints use inline request bodies / plain
-dicts, so there are no auth schemas here.
+The profile library schemas introduced in 0.2.0, the voting + comment schemas
+added in 0.3.0 (C4) and the Q&A portal schemas added in 0.4.0 (C5). Auth
+endpoints use inline request bodies / plain dicts, so there are no auth schemas
+here.
 """
 
 from app.schemas.interactions import (
@@ -24,6 +25,15 @@ from app.schemas.profile import (
     VersionSummary,
     check_preview_from_bundle,
 )
+from app.schemas.qa import (
+    AnswerIn,
+    AnswerOut,
+    QuestionDetail,
+    QuestionEdit,
+    QuestionIn,
+    QuestionSummary,
+    SimilarQuestion,
+)
 
 __all__ = [
     "ProfileSummary",
@@ -41,4 +51,11 @@ __all__ = [
     "CommentThread",
     "HelpfulIn",
     "ReportIn",
+    "QuestionIn",
+    "QuestionEdit",
+    "QuestionSummary",
+    "QuestionDetail",
+    "AnswerIn",
+    "AnswerOut",
+    "SimilarQuestion",
 ]

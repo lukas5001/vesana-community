@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ question.title_text }} &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="/questions">&larr; Back to questions</a></p>
+
+<div class="question-head">
+    <div class="detail-title-row">
+        <h1>{{ question.title_text }}</h1>
+        {% if question.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
+        {% if question.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
+    </div>
+    <div class="detail-meta">
+        <span>by {{ question.author_display }}</span>
+        <span>&middot; <span class="vote-pill" title="Score">{{ question.vote_score }}</span></span>
+        <span>&middot; {{ question.answer_count }} answer{{ '' if question.answer_count == 1 else 's' }}</span>
+    </div>
+</div>
+
+{% if question.is_closed %}
+<div class="closed-notice">
+    {% if duplicate_of %}
+    This question was closed as a duplicate of
+    <a href="/questions/{{ duplicate_of.id }}">{{ duplicate_of.title_text }}</a>.
+    {% else %}
+    This question is closed and no longer accepts new answers.
+    {% endif %}
+    {% if question.closed_reason %}<div class="muted">{{ question.closed_reason }}</div>{% endif %}
+</div>
+{% endif %}
+
+<section class="detail-section">
+    <div class="markdown-body">{{ question.body_md | markdown_safe }}</div>
+    {% if question.tags %}
+    <div class="card-tags">
+        {% for tag in question.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if question.profile_id %}
+    <p class="muted">Related profile: <a href="/p/{{ question.profile_id }}">view profile</a></p>
+    {% endif %}
+</section>
+
+<section class="detail-section answers-section">
+    <h2>{{ answers | length }} Answer{{ '' if answers | length == 1 else 's' }}</h2>
+    {# TODO(client widget): posting / voting / accepting controls land with the
+       client-side widget. Server-side answers render read-only, accepted first. #}
+    {% if not answers %}
+    <p class="muted">No answers yet.</p>
+    {% endif %}
+    <ul class="answer-list">
+        {% for a in answers %}
+        <li class="answer{% if a.is_accepted %} answer--accepted{% endif %}">
+            <div class="answer-head">
+                <span class="comment-author">{{ a.author_display }}</span>
+                {% if a.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
+                {% if a.is_accepted %}<span class="accepted-badge">✅ Akzeptiert</span>{% endif %}
+                <span class="vote-pill" title="Score">{{ a.vote_score }}</span>
+            </div>
+            <div class="answer-body markdown-body">{{ a.body_md | markdown_safe }}</div>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

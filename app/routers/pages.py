@@ -14,8 +14,10 @@ from app.auth.deps import get_session_instance
 from app.db import get_db
 from app.models.community_profile import CommunityProfile
 from app.models.instance import Instance
+from app.models.question import Question
 from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
-from app.services.comments import list_thread
+from app.services import qa as qa_service
+from app.services.comments import author_display, list_thread
 from app.services.profiles import (
     SORT_OPTIONS,
     ProfileFilters,
@@ -117,6 +119,13 @@ def detail_page(
     # cookie-session instance (or None); my_vote/can_edit reflect that.
     caller_uuid = instance.uuid if instance is not None else None
     threads = list_thread(db, profile.id, caller_uuid)
+    related_questions = list(
+        db.execute(
+            select(Question)
+            .where(Question.profile_id == profile.id)
+            .order_by(Question.created_at.desc())
+        ).scalars()
+    )
     context = {
         "instance": instance,
         "version": VERSION,
@@ -127,5 +136,112 @@ def detail_page(
         "latest_version_tag": latest_version_tag(profile),
         "now": datetime.now(UTC),
         "comment_threads": threads,
+        "related_questions": related_questions,
     }
     return templates.TemplateResponse(request, "detail.html", context)
+
+
+def _question_card(db: Session, question: Question) -> dict:
+    return {
+        "id": question.id,
+        "title_text": question.title_text,
+        "author_display": author_display(
+            (db.get(Instance, question.instance_uuid).display_name)
+            if db.get(Instance, question.instance_uuid) is not None
+            else None,
+            question.instance_uuid,
+        ),
+        "is_vesana_team": question.is_vesana_team,
+        "tags": list(question.tags or []),
+        "vote_score": question.vote_score,
+        "answer_count": question.answer_count,
+        "is_closed": question.is_closed,
+        "has_accepted": qa_service.has_accepted(question),
+    }
+
+
+@router.get("/questions", response_class=HTMLResponse)
+def questions_page(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    filter: Annotated[str | None, Query()] = None,
+    tag: Annotated[str | None, Query()] = None,
+    search: Annotated[str | None, Query()] = None,
+    sort: Annotated[str, Query()] = qa_service.DEFAULT_SORT,
+) -> HTMLResponse:
+    questions, total = qa_service.list_questions(
+        db, filter_=filter, tag=tag, search=search, sort=sort, limit=100
+    )
+    cards = [_question_card(db, q) for q in questions]
+    context = {
+        "instance": instance,
+        "version": VERSION,
+        "questions": cards,
+        "total": total,
+        "search": search or "",
+        "active_filter": filter or "",
+        "active_sort": sort if sort in qa_service.SORT_OPTIONS else qa_service.DEFAULT_SORT,
+        "sort_options": qa_service.SORT_OPTIONS,
+        "filter_options": qa_service.FILTER_OPTIONS,
+        "active_tag": tag or "",
+    }
+    return templates.TemplateResponse(request, "questions.html", context)
+
+
+@router.get("/questions/{question_id}", response_class=HTMLResponse)
+def question_page(
+    question_id: str,
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+) -> HTMLResponse:
+    question = qa_service.get_question(db, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    answers = qa_service.sorted_answers(question)
+    duplicate_of = (
+        db.get(Question, question.duplicate_of_id) if question.duplicate_of_id is not None else None
+    )
+    display_names = qa_service.display_names_for(
+        db, list({a.instance_uuid for a in answers} | {question.instance_uuid})
+    )
+    context = {
+        "instance": instance,
+        "version": VERSION,
+        "question": {
+            "id": question.id,
+            "title_text": question.title_text,
+            "body_md": question.body_md,
+            "author_display": author_display(
+                display_names.get(question.instance_uuid), question.instance_uuid
+            ),
+            "is_vesana_team": question.is_vesana_team,
+            "tags": list(question.tags or []),
+            "vote_score": question.vote_score,
+            "answer_count": question.answer_count,
+            "is_closed": question.is_closed,
+            "closed_reason": question.closed_reason,
+            "created_at": question.created_at,
+            "profile_id": question.profile_id,
+        },
+        "answers": [
+            {
+                "id": a.id,
+                "author_display": author_display(
+                    display_names.get(a.instance_uuid), a.instance_uuid
+                ),
+                "is_vesana_team": a.is_vesana_team,
+                "body_md": a.body_md,
+                "vote_score": a.vote_score,
+                "is_accepted": a.is_accepted,
+            }
+            for a in answers
+        ],
+        "duplicate_of": (
+            {"id": duplicate_of.id, "title_text": duplicate_of.title_text}
+            if duplicate_of is not None
+            else None
+        ),
+    }
+    return templates.TemplateResponse(request, "question.html", context)

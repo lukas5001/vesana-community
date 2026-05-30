@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.4.0 — Q&A portal
+
+Added a community Q&A portal: questions and answers with voting, accepted
+answers, similar-question search and profile linking.
+
+### Highlights
+
+- `questions` + `answers` tables (Alembic `0004_qa_portal`), both with cached
+  `vote_score` recomputed via the unified `votes` table (`target_type`
+  `question` / `answer`).
+- Questions carry a cached `answer_count` (recomputed on answer create/delete),
+  optional `tags`, an optional `profile_id` link (SET NULL on profile delete),
+  and a self-referential `duplicate_of_id`.
+- Voting on questions and answers reuses the unified votes service (one vote per
+  instance per target, re-voting upserts, `±1` only).
+- Exactly one answer per question may be accepted: only the question author may
+  accept; accepting flips any previously accepted answer false in one
+  transaction, also guarded by a Postgres partial unique index
+  (`uq_answers_one_accepted`).
+- Answers sort accepted-first, then by `vote_score`, then oldest first.
+- Similar-question search (`GET /api/v1/questions/similar?title=`, ILIKE top 5).
+- Filters (open / answered / unanswered / accepted / tag) + search over
+  title/body/tags + sort (newest / votes / active).
+- Admin-only duplicate close: closed questions stay visible but accept no new
+  answers (409). Reporting questions/answers reuses `moderation_reports`.
+- "Vesana Team" badge stamped on a question/answer only when the author posts
+  with valid admin credentials (`X-Admin-Authorization`); never self-settable.
+- Server-rendered, read-only pages: `/questions` (list + filters + search +
+  sort, closed + Vesana-Team badges) and `/questions/{id}` (escaped markdown,
+  accepted-first answers with ✅ badge, closed/duplicate notice). The profile
+  detail page gains a "Zugehörige Fragen" section.
+- Notification seam fires `answer.created` / `answer.accepted` (no-op until C6).
+- Alembic migration `0004_qa_portal`; bumped to 0.4.0.
+
 ## 0.3.0 — Voting & comments
 
 Added voting and one-level threaded comments for community profiles.
