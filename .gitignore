@@ -28,3 +28,7 @@ htmlcov/
 .vscode/
 *.swp
 .DS_Store
+
+# Deploy secrets — never commit
+secrets/
+*.pem
