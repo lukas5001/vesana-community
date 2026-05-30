@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}Review-Queue{% endblock %}
+
+{% block admin_content %}
+<nav class="admin-tabs">
+  {% for opt in ["pending", "approved", "rejected", "all"] %}
+  <a
+    class="admin-tab {% if status_filter == opt %}admin-tab--active{% endif %}"
+    href="/admin/review{% if opt != 'pending' %}?status={{ opt }}{% endif %}"
+  >{{ opt }}</a>
+  {% endfor %}
+</nav>
+
+{% if not items %}
+<p class="admin-empty">Keine Profile in dieser Ansicht.</p>
+{% else %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Profil</th>
+      <th>Uploader</th>
+      <th>Version</th>
+      <th>Status</th>
+      <th>Scripts</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>
+        <a href="/p/{{ item.profile_id }}">{{ item.name }}</a>
+        {% if item.vendor %}<span class="admin-dim">· {{ item.vendor }}</span>{% endif %}
+      </td>
+      <td>{{ item.uploader_display }}</td>
+      <td>{{ item.current_version_tag or "—" }}</td>
+      <td><span class="badge badge--{{ item.review_status }}">{{ item.review_status }}</span></td>
+      <td>
+        {% if item.has_scripts %}
+        <span class="badge badge--warn">⚠ Scripts</span>
+        {% if item.script_findings %}
+        <ul class="admin-findings">
+          {% for f in item.script_findings %}
+          <li><code>{{ f.marker }}</code> @ {{ f.where }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% else %}
+        <span class="admin-dim">keine</span>
+        {% endif %}
+      </td>
+      <td class="admin-actions">
+        {% if item.review_status != "approved" %}
+        <form method="post" action="/admin/review/{{ item.profile_id }}/approve">
+          <button class="admin-btn admin-btn--ok" type="submit">Freigeben</button>
+        </form>
+        {% endif %}
+        {% if item.review_status != "rejected" %}
+        <form method="post" action="/admin/review/{{ item.profile_id }}/reject" class="admin-inline">
+          <input class="admin-input" type="text" name="reason" placeholder="Grund" />
+          <button class="admin-btn admin-btn--bad" type="submit">Ablehnen</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

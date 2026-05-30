@@ -1,0 +1,49 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}Instanzen{% endblock %}
+
+{% block admin_content %}
+{% if not instances %}
+<p class="admin-empty">Noch keine Instanzen.</p>
+{% else %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>UUID</th>
+      <th>Uploads</th>
+      <th>Zuletzt gesehen</th>
+      <th>Status</th>
+      <th>Aktion</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in instances %}
+    <tr>
+      <td>{{ i.display_name }}</td>
+      <td><code class="admin-uuid">{{ i.uuid }}</code></td>
+      <td>{{ i.uploaded_count }}</td>
+      <td>{{ i.last_seen_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td>
+        {% if i.is_blocked %}
+        <span class="badge badge--closed">geblockt</span>
+        {% else %}
+        <span class="badge badge--community">aktiv</span>
+        {% endif %}
+      </td>
+      <td class="admin-actions">
+        <form method="post" action="/admin/instances/{{ i.uuid }}/block" class="admin-inline">
+          {% if i.is_blocked %}
+          <input type="hidden" name="blocked" value="false" />
+          <button class="admin-btn admin-btn--ok" type="submit">Entsperren</button>
+          {% else %}
+          <input type="hidden" name="blocked" value="true" />
+          <button class="admin-btn admin-btn--bad" type="submit">Blockieren</button>
+          {% endif %}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

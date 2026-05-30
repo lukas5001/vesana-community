@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}Moderation{% endblock %}
+
+{% block admin_content %}
+<nav class="admin-tabs">
+  {% for opt in ["open", "resolved", "dismissed", "all"] %}
+  <a
+    class="admin-tab {% if status_filter == opt %}admin-tab--active{% endif %}"
+    href="/admin/moderation?status={{ opt }}"
+  >{{ opt }}</a>
+  {% endfor %}
+</nav>
+
+{% if not reports %}
+<p class="admin-empty">Keine Reports in dieser Ansicht.</p>
+{% else %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Typ</th>
+      <th>Vorschau</th>
+      <th>Grund</th>
+      <th>Status</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in reports %}
+    <tr>
+      <td><span class="badge badge--community">{{ r.target_type }}</span></td>
+      <td class="admin-preview">{{ r.target_preview }}</td>
+      <td class="admin-reason">{{ r.reason }}</td>
+      <td><span class="badge badge--closed">{{ r.status }}</span></td>
+      <td class="admin-actions">
+        {% if r.status == "open" %}
+        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="admin-inline">
+          <input type="hidden" name="action" value="remove" />
+          <button class="admin-btn admin-btn--bad" type="submit">Entfernen</button>
+        </form>
+        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="admin-inline">
+          <input type="hidden" name="action" value="dismiss" />
+          <button class="admin-btn" type="submit">Verwerfen</button>
+        </form>
+        {% else %}
+        <span class="admin-dim">erledigt</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

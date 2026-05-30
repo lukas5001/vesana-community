@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ self.admin_title() }} · Vesana Community Hub{% endblock %}
+
+{% block header_extra %}
+<nav class="site-nav">
+  <a class="site-nav__link" href="/">Zur Community</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+<section class="admin">
+  <header class="admin__head">
+    <h1 class="admin__title">Admin · {% block admin_title %}{% endblock %}</h1>
+    <nav class="admin__nav">
+      {% for s in sections %}
+      <a
+        class="admin__nav-link {% if s.key == active %}admin__nav-link--active{% endif %}"
+        href="{{ s.href }}"
+      >{{ s.label }}</a>
+      {% endfor %}
+    </nav>
+  </header>
+
+  <div class="admin__body">
+    {% block admin_content %}{% endblock %}
+  </div>
+</section>
+{% endblock %}

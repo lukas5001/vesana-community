@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}Profile{% endblock %}
+
+{% block admin_content %}
+<p class="admin-hint">
+  Beta- und Community-Profile, die zu <strong>official</strong> befördert werden
+  können. Befördern setzt Tier = official und genehmigt das Profil.
+</p>
+
+{% if not profiles %}
+<p class="admin-empty">Keine beförderbaren Profile.</p>
+{% else %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Profil</th>
+      <th>Vendor</th>
+      <th>Tier</th>
+      <th>Review</th>
+      <th>Aktion</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in profiles %}
+    <tr>
+      <td><a href="/p/{{ p.id }}">{{ p.name }}</a></td>
+      <td>{{ p.vendor or "—" }}</td>
+      <td><span class="badge badge--{{ p.tier }}">{{ p.tier }}</span></td>
+      <td><span class="badge badge--{{ p.review_status }}">{{ p.review_status }}</span></td>
+      <td class="admin-actions">
+        <form method="post" action="/admin/profiles/{{ p.id }}/promote" class="admin-inline">
+          <button class="admin-btn admin-btn--ok" type="submit">→ official</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

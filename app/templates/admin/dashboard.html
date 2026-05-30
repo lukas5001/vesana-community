@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+{% block admin_title %}Übersicht{% endblock %}
+
+{% block admin_content %}
+<div class="admin-cards">
+  <div class="admin-card">
+    <span class="admin-card__label">Instanzen</span>
+    <span class="admin-card__value">{{ stats.instances_total }}</span>
+    <span class="admin-card__sub">{{ stats.instances_blocked }} geblockt</span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Profile</span>
+    <span class="admin-card__value">{{ stats.profiles_total }}</span>
+    <span class="admin-card__sub">{{ stats.profiles_pending }} im Review</span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Profile nach Tier</span>
+    <span class="admin-card__value">{{ stats.profiles_by_tier.official }}</span>
+    <span class="admin-card__sub">
+      official · {{ stats.profiles_by_tier.beta }} beta ·
+      {{ stats.profiles_by_tier.community }} community
+    </span>
+  </div>
+  <div class="admin-card {% if stats.reports_open %}admin-card--alert{% endif %}">
+    <span class="admin-card__label">Offene Reports</span>
+    <span class="admin-card__value">{{ stats.reports_open }}</span>
+    <span class="admin-card__sub"><a href="/admin/moderation">Moderation öffnen</a></span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Fragen</span>
+    <span class="admin-card__value">{{ stats.questions_total }}</span>
+    <span class="admin-card__sub">{{ stats.questions_open }} offen</span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Votes</span>
+    <span class="admin-card__value">{{ stats.votes_total }}</span>
+    <span class="admin-card__sub">community-weit</span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Downloads / Imports</span>
+    <span class="admin-card__value">{{ stats.downloads_total }}</span>
+    <span class="admin-card__sub">{{ stats.imports_total }} Imports</span>
+  </div>
+  <div class="admin-card">
+    <span class="admin-card__label">Events</span>
+    <span class="admin-card__value">{{ stats.events_total }}</span>
+    <span class="admin-card__sub">Notifications gesamt</span>
+  </div>
+</div>
+{% endblock %}

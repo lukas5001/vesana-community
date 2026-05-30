@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.7.0 — Admin panel
+
+Added the community admin panel (C8): a server-rendered HTML console plus a
+matching JSON API for review, moderation, instances, approvals and stats.
+
+### Highlights
+
+- HTML admin at `/admin` (`/admin/review`, `/admin/moderation`,
+  `/admin/instances`, `/admin/profiles`) — gated by `require_admin` HTTP Basic
+  (the app's OWN `.env` creds `COMMUNITY_ADMIN_USER` / `COMMUNITY_ADMIN_PASSWORD`,
+  NOT instance SSO), so the browser shows a Basic-auth prompt. Each section is
+  themed via CSS tokens + `color-mix` (no bare `color:#fff`) and fully escaped;
+  attacker-influenced content (report reasons, script findings, names) is never
+  marked safe.
+- Dashboard with overview stats: instances (total / blocked), profiles (total,
+  by tier, pending), downloads/imports totals, votes, questions (total / open),
+  open reports and events.
+- Review-Queue page reuses the C3 review service (`list_for_review` / `approve` /
+  `reject`) — script findings + `has_scripts` shown prominently; HTML forms post
+  to `require_admin` handlers that 303 back.
+- Moderation: open reports with a SAFE target preview (a removed comment shows
+  `[entfernt]`; no downvote reasons or secrets are ever leaked). Resolve via
+  `dismiss` (status → `dismissed`) or `remove` (acts on the target — comment
+  `is_removed`, question `is_closed` + `closed_reason='removed by moderator'`,
+  answer deleted, profile `is_removed` — and status → `resolved`).
+- Instances: list active instances with their uploaded-profile count;
+  block/unblock toggles `is_blocked` (the auth layer already rejects blocked
+  instances on every request).
+- Profiles: promote a beta/community profile to `official` (also sets `approved`
+  + `review_status='approved'` + `approved_by='admin'`).
+- AdminFlag-gated JSON API (`X-Admin-Authorization` Basic, same seam as C3/C4):
+  `GET /api/v1/admin/reports`, `POST /api/v1/admin/reports/{id}/resolve`,
+  `GET /api/v1/admin/instances`, `POST /api/v1/admin/instances/{uuid}/block`,
+  `POST /api/v1/admin/profiles/{id}/promote`, `GET /api/v1/admin/stats`. The
+  existing C3 review-queue endpoints are reused, not redefined. Every endpoint
+  returns 401 without the admin header.
+- NO new migration: the moderation `status` column (`open` → `resolved` /
+  `dismissed`) is reused as the resolution state, and every stat reuses existing
+  columns. Migrations `0001`–`0006` are untouched.
+
 ## 0.6.0 — Community notifications (events + poll)
 
 - New `community_events` table (migration `0006_community_events`) and

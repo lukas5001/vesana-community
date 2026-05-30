@@ -6,6 +6,13 @@ endpoints use inline request bodies / plain dicts, so there are no auth schemas
 here.
 """
 
+from app.schemas.admin import (
+    AdminStats,
+    BlockIn,
+    InstanceItem,
+    ReportItem,
+    ResolveReportIn,
+)
 from app.schemas.interactions import (
     CommentEdit,
     CommentIn,
@@ -76,4 +83,9 @@ __all__ = [
     "NotificationOut",
     "NotificationList",
     "MarkReadIn",
+    "ReportItem",
+    "ResolveReportIn",
+    "InstanceItem",
+    "BlockIn",
+    "AdminStats",
 ]
