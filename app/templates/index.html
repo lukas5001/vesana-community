@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="card">
+  {% if instance %}
+    <h1 class="card__title">Welcome back</h1>
+    <p class="card__lead">
+      You are signed in as
+      <strong class="instance-name">{{ instance.display_name }}</strong>.
+    </p>
+    {% if instance.avatar_data %}
+      <img
+        class="avatar"
+        src="data:image/webp;base64,{{ instance.avatar_data }}"
+        alt="Avatar of {{ instance.display_name }}"
+      />
+    {% endif %}
+    <p class="muted">Instance ID: <code>{{ instance.uuid }}</code></p>
+  {% else %}
+    <h1 class="card__title">Vesana Community Hub</h1>
+    <p class="card__lead">
+      This hub is reached through single sign-on from your Vesana instance.
+    </p>
+    <p class="muted">
+      Open the Community Hub from your own Vesana instance to sign in —
+      there is no password to type here.
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

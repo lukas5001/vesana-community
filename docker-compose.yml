@@ -1,0 +1,43 @@
+# vesana-community — local development compose.
+#
+# NOTE: On PROD, vesana-community does NOT run its own Postgres. It connects to
+# the existing shared Postgres used by the rest of the Vesana stack and keeps
+# all of its tables in the dedicated "community" schema (DATABASE_URL points
+# there). The `postgres` service below exists ONLY for local development.
+
+services:
+  community:
+    build: .
+    env_file: .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Local-dev only — see note above.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: community
+      POSTGRES_PASSWORD: community
+      POSTGRES_DB: community
+    ports:
+      - "5432:5432"
+    volumes:
+      - community_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U community -d community"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  community_pgdata:

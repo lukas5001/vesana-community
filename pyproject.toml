@@ -1,0 +1,17 @@
+[project]
+name = "vesana-community"
+version = "0.1.0"
+description = "community.vesana.org — the Vesana Community Hub (standalone FastAPI sibling app)."
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"

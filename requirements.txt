@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy>=2
+alembic
+psycopg[binary]
+pydantic
+pydantic-settings
+pyjwt
+cryptography
+jinja2
+python-multipart
+itsdangerous
+httpx
+pytest
+pytest-asyncio
+ruff
