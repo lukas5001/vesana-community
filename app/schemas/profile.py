@@ -46,6 +46,11 @@ class ProfileSummary(BaseModel):
     icon: str | None = None
     tier: str
     approved: bool
+    # Review workflow (C3): 'pending' | 'approved' | 'rejected'. Drives the
+    # "🔄 Warte auf Review" badge in browse/detail.
+    review_status: str = "approved"
+    # Heuristic script-gate flag (C3); true if any check references a script.
+    has_scripts: bool = False
     vote_score: int = 0
     download_count: int = 0
     import_count: int = 0

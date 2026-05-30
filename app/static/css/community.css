@@ -690,3 +690,66 @@ a {
 .answer-body {
   color: var(--text-secondary);
 }
+
+/* --- C3: upload review badges + community/script warnings ------------------ */
+/* Themed via CSS custom-property tokens with safe fallbacks; never uses a bare
+   color: #fff on a themed background (color-mix keeps contrast readable). */
+
+.review-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  background: color-mix(in srgb, var(--warning, #d9a441) 22%, var(--surface, #1b1f27));
+  color: color-mix(in srgb, var(--warning, #d9a441) 82%, var(--text, #e8eaed));
+  border: 1px solid color-mix(in srgb, var(--warning, #d9a441) 45%, transparent);
+}
+
+.review-badge--rejected {
+  background: color-mix(in srgb, var(--danger, #d65a5a) 22%, var(--surface, #1b1f27));
+  color: color-mix(in srgb, var(--danger, #d65a5a) 82%, var(--text, #e8eaed));
+  border-color: color-mix(in srgb, var(--danger, #d65a5a) 45%, transparent);
+}
+
+.community-warning {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--warning, #d9a441) 14%, var(--surface, #1b1f27));
+  color: color-mix(in srgb, var(--warning, #d9a441) 78%, var(--text, #e8eaed));
+  border: 1px solid color-mix(in srgb, var(--warning, #d9a441) 40%, transparent);
+}
+
+.community-warning strong {
+  color: color-mix(in srgb, var(--warning, #d9a441) 90%, var(--text, #e8eaed));
+}
+
+.script-warning {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--danger, #d65a5a) 14%, var(--surface, #1b1f27));
+  color: color-mix(in srgb, var(--danger, #d65a5a) 80%, var(--text, #e8eaed));
+  border: 1px solid color-mix(in srgb, var(--danger, #d65a5a) 40%, transparent);
+}
+
+.script-findings {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}

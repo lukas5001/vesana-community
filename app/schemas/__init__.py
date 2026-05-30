@@ -34,6 +34,12 @@ from app.schemas.qa import (
     QuestionSummary,
     SimilarQuestion,
 )
+from app.schemas.upload import (
+    BundleUpload,
+    RejectIn,
+    ReviewItem,
+    UploadResult,
+)
 
 __all__ = [
     "ProfileSummary",
@@ -58,4 +64,8 @@ __all__ = [
     "AnswerIn",
     "AnswerOut",
     "SimilarQuestion",
+    "BundleUpload",
+    "UploadResult",
+    "ReviewItem",
+    "RejectIn",
 ]

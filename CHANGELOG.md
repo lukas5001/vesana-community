@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.5.0 — Community upload + review queue
+
+Added self-hoster profile uploads with a heuristic script-gate, immediate
+"waiting for review" visibility, owner-scoped versioning and an admin review
+queue.
+
+### Highlights
+
+- `POST /api/v1/profiles/upload` (Bearer auth): an instance uploads a Vesana
+  profile bundle (`schema_version` 1). Creates a `tier='community'` profile with
+  `review_status='pending'` (immediately visible, badged) plus a current version
+  row, or — when the SAME uploader re-uploads a profile with the same
+  (name, vendor) — adds a new immutable version, flips `is_current`, updates
+  `latest_version_id`/`updated_at` and resets `review_status` to `pending`.
+- MODERATE-BEFORE-SHOW = NO: community uploads are visible right away with a
+  "🔄 Warte auf Review" badge until approved; only `rejected` + removed profiles
+  are hidden. `review_status` ('pending' | 'approved' | 'rejected') is the source
+  of truth; the legacy `approved` bool is mirrored from it.
+- Upload constraints: `schema_version` must be 1 (400), `profile.name` required
+  (400), serialized bundle ≤ 500KB (413); re-using a `version_tag` on a profile
+  you already own is a 409 (versions are immutable).
+- Heuristic script-gate (NOT a sandbox): flags `has_scripts` when a check
+  references a script via `check_config.script_id`, and records `script_findings`
+  for dangerous markers (`rm -rf`, `Invoke-Expression`, `curl | bash`, `eval(`,
+  `os.system`, …) found in any check_config string or a top-level `scripts` list.
+- Admin review queue (`X-Admin-Authorization` Basic): `GET /api/v1/admin/
+  review-queue` (pending by default, `?status=all|approved|rejected`),
+  `POST /api/v1/admin/review/{id}/approve`,
+  `POST /api/v1/admin/review/{id}/reject` (stores `rejection_reason`).
+- Browse + detail surface `review_status` + `has_scripts`: a pending badge, a
+  persistent community warning ("Scripts laufen auf deinen Agents/Collectoren;
+  nicht von Vesana geprüft") and an extra script-findings note. Themed via
+  CSS tokens + `color-mix` (no bare `color: #fff`), escaped.
+- Notification seam fires `profile.approved` / `profile.rejected` (no-op until
+  C6); no notifications table.
+- Alembic migration `0005_upload_review` (adds `review_status`,
+  `rejection_reason`, `has_scripts`, `script_findings`); bumped to 0.5.0.
+
 ## 0.4.0 — Q&A portal
 
 Added a community Q&A portal: questions and answers with voting, accepted

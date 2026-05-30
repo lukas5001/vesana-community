@@ -69,9 +69,11 @@ def browse_page(
             "category": p.category,
             "icon": p.icon,
             "tier": p.tier,
+            "review_status": p.review_status,
+            "has_scripts": p.has_scripts,
             "import_count": p.import_count,
             "download_count": p.download_count,
-            "vote_score": 0,
+            "vote_score": p.vote_score,
             "tags": list(p.tags or []),
             "version_tag": latest_version_tag(p),
         }

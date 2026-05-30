@@ -41,7 +41,9 @@ def _to_summary(profile: CommunityProfile) -> ProfileSummary:
         icon=profile.icon,
         tier=profile.tier,
         approved=profile.approved,
-        vote_score=0,  # real votes land in C4
+        review_status=profile.review_status,
+        has_scripts=profile.has_scripts,
+        vote_score=profile.vote_score,
         download_count=profile.download_count,
         import_count=profile.import_count,
         tags=list(profile.tags or []),

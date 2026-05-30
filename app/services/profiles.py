@@ -47,12 +47,18 @@ def clamp_limit(limit: int | None) -> int:
 
 
 def _visibility_clause():
-    """Profiles a self-hoster may see: visible tiers OR approved, not removed."""
+    """Profiles a self-hoster may see.
+
+    Visible: curated tiers (official/beta) OR any non-rejected profile (community
+    uploads are immediately visible while ``review_status`` is 'pending' and
+    carry a "waiting for review" badge; only 'rejected' and removed profiles are
+    hidden). ``review_status`` is the source of truth here (C3).
+    """
     return (
         CommunityProfile.is_removed.is_(False),
         or_(
             CommunityProfile.tier.in_(VISIBLE_TIERS),
-            CommunityProfile.approved.is_(True),
+            CommunityProfile.review_status != "rejected",
         ),
     )
 
