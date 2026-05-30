@@ -15,6 +15,7 @@ from app.db import get_db
 from app.models.community_profile import CommunityProfile
 from app.models.instance import Instance
 from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
+from app.services.comments import list_thread
 from app.services.profiles import (
     SORT_OPTIONS,
     ProfileFilters,
@@ -112,6 +113,10 @@ def detail_page(
             if uploader_instance is not None and uploader_instance.display_name
             else VESANA_TEAM_UPLOADER
         )
+    # Server-render the comment thread read-only. The caller is the
+    # cookie-session instance (or None); my_vote/can_edit reflect that.
+    caller_uuid = instance.uuid if instance is not None else None
+    threads = list_thread(db, profile.id, caller_uuid)
     context = {
         "instance": instance,
         "version": VERSION,
@@ -121,5 +126,6 @@ def detail_page(
         "current_version": current,
         "latest_version_tag": latest_version_tag(profile),
         "now": datetime.now(UTC),
+        "comment_threads": threads,
     }
     return templates.TemplateResponse(request, "detail.html", context)

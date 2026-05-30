@@ -24,7 +24,7 @@
 <div class="detail-stats">
     <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">imports</span></div>
     <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">downloads</span></div>
-    <div class="stat"><span class="stat-num">0</span><span class="stat-label">score</span></div>
+    <div class="stat"><span class="stat-num">{{ profile.vote_score }}</span><span class="stat-label">score</span></div>
 </div>
 
 <section class="detail-section">
@@ -79,4 +79,46 @@
     <div class="markdown-body">{{ current_version.changelog_md | markdown_safe }}</div>
 </section>
 {% endif %}
+
+<section class="detail-section comments-section">
+    <h2>Comments ({{ comment_threads | length }})</h2>
+    {# TODO(React embed): posting + voting controls land with the client widget.
+       Server-side we render the thread read-only (escaped markdown, scores,
+       helpful badge). Downvote reasons are NEVER rendered here. #}
+    {% if not comment_threads %}
+    <p class="muted">No comments yet.</p>
+    {% endif %}
+    <ul class="comment-list">
+        {% for thread in comment_threads %}
+        {% set c = thread.comment %}
+        <li class="comment{% if c.is_helpful %} comment-helpful{% endif %}">
+            <div class="comment-head">
+                <span class="comment-author">{{ c.author_display }}</span>
+                {% if c.is_helpful %}<span class="helpful-badge">Helpful</span>{% endif %}
+                <span class="vote-pill" title="Score">{{ c.vote_score }}</span>
+                {% if c.reply_count %}<span class="muted reply-count">{{ c.reply_count }} repl{{ 'y' if c.reply_count == 1 else 'ies' }}</span>{% endif %}
+            </div>
+            <div class="comment-body markdown-body">
+                {% if c.body_md is none %}<em class="muted">[removed]</em>{% else %}{{ c.body_md | markdown_safe }}{% endif %}
+            </div>
+            {% if thread.replies %}
+            <ul class="reply-list">
+                {% for r in thread.replies %}
+                <li class="comment reply{% if r.is_helpful %} comment-helpful{% endif %}">
+                    <div class="comment-head">
+                        <span class="comment-author">{{ r.author_display }}</span>
+                        {% if r.is_helpful %}<span class="helpful-badge">Helpful</span>{% endif %}
+                        <span class="vote-pill" title="Score">{{ r.vote_score }}</span>
+                    </div>
+                    <div class="comment-body markdown-body">
+                        {% if r.body_md is none %}<em class="muted">[removed]</em>{% else %}{{ r.body_md | markdown_safe }}{% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
 {% endblock %}

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
-from app.routers import auth, health, pages, profiles
+from app.routers import auth, community_interactions, health, pages, profiles
 from app.version import VERSION
 
 _BASE_DIR = Path(__file__).resolve().parent
@@ -33,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(profiles.router)
+    app.include_router(community_interactions.router)
     # Pages router owns "/" (the browse view) and "/p/{id}" (detail).
     app.include_router(pages.router)
 

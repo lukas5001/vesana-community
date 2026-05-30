@@ -80,6 +80,9 @@ class CommunityProfile(Base):
     is_removed: Mapped[bool] = mapped_column(
         Boolean, server_default="false", nullable=False, default=False
     )
+    # Cached vote score (SUM of votes.value for this profile), kept in sync by
+    # app.services.voting in the same transaction as each vote change (C4).
+    vote_score: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False, default=0)
 
     versions: Mapped[list[CommunityProfileVersion]] = relationship(
         "CommunityProfileVersion",
