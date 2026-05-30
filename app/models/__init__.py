@@ -5,6 +5,7 @@ All models must be imported here so that Alembic autogenerate and
 """
 
 from app.models.answer import Answer
+from app.models.community_event import CommunityEvent
 from app.models.community_profile import CommunityProfile
 from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
@@ -17,6 +18,7 @@ from app.models.vote import Vote
 __all__ = [
     "Instance",
     "UsedLoginToken",
+    "CommunityEvent",
     "CommunityProfile",
     "CommunityProfileVersion",
     "Vote",

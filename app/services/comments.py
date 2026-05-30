@@ -104,7 +104,8 @@ def create_comment(
     body_md: str,
     parent_id: str | None,
 ) -> ProfileComment:
-    _require_profile(db, profile_id)
+    profile = _require_profile(db, profile_id)
+    parent: ProfileComment | None = None
     if parent_id is not None:
         parent = db.get(ProfileComment, parent_id)
         if parent is None or parent.is_removed or parent.profile_id != profile_id:
@@ -126,13 +127,37 @@ def create_comment(
     db.add(comment)
     db.flush()
     db.refresh(comment)
-    notifications.enqueue(
-        "comment.created",
-        profile_id=profile_id,
-        comment_id=comment.id,
-        parent_id=parent_id,
-        actor_uuid=instance_uuid,
+
+    commenter_display = author_display(
+        _display_names_for(db, [instance_uuid]).get(instance_uuid), instance_uuid
     )
+    if parent is not None:
+        # Reply -> notify the parent comment's author.
+        notifications.enqueue(
+            db,
+            recipient_uuid=parent.instance_uuid,
+            actor_uuid=instance_uuid,
+            type="comment_reply",
+            payload={
+                "profile_id": profile_id,
+                "comment_id": comment.id,
+                "commenter_display": commenter_display,
+            },
+        )
+    else:
+        # Top-level comment -> notify the profile's uploader (skipped if it is
+        # the commenter themselves, or for official/beta profiles with no owner).
+        notifications.enqueue(
+            db,
+            recipient_uuid=profile.uploader_instance_uuid,
+            actor_uuid=instance_uuid,
+            type="profile_comment",
+            payload={
+                "profile_id": profile_id,
+                "profile_name": profile.name,
+                "commenter_display": commenter_display,
+            },
+        )
     return comment
 
 
@@ -258,10 +283,4 @@ def report(
     db.add(moderation_report)
     db.flush()
     db.refresh(moderation_report)
-    notifications.enqueue(
-        "moderation.reported",
-        target_type=target_type,
-        target_id=target_id,
-        reporter_uuid=reporter_uuid,
-    )
     return moderation_report

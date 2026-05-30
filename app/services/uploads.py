@@ -343,10 +343,18 @@ def approve(db: Session, profile_id: str) -> CommunityProfile:
     profile.approved_by = "admin"
     profile.rejection_reason = None
     db.flush()
+
+    # Approved -> notify the uploader. actor is the admin (not an instance), so
+    # there is never a self-notify; official/beta profiles have no uploader.
     notifications.enqueue(
-        "profile.approved",
-        profile_id=profile.id,
-        uploader_instance_uuid=profile.uploader_instance_uuid,
+        db,
+        recipient_uuid=profile.uploader_instance_uuid,
+        actor_uuid=None,
+        type="profile_approved",
+        payload={
+            "profile_id": profile.id,
+            "profile_name": profile.name,
+        },
     )
     return profile
 
@@ -360,10 +368,17 @@ def reject(db: Session, profile_id: str, reason: str) -> CommunityProfile:
     profile.approved = False
     profile.rejection_reason = reason
     db.flush()
+
+    # Rejected -> notify the uploader with the reason (visible to them only).
     notifications.enqueue(
-        "profile.rejected",
-        profile_id=profile.id,
-        uploader_instance_uuid=profile.uploader_instance_uuid,
-        reason=reason,
+        db,
+        recipient_uuid=profile.uploader_instance_uuid,
+        actor_uuid=None,
+        type="profile_rejected",
+        payload={
+            "profile_id": profile.id,
+            "profile_name": profile.name,
+            "reason": reason,
+        },
     )
     return profile

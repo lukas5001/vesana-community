@@ -16,6 +16,11 @@ from app.schemas.interactions import (
     VoteIn,
     VoteResult,
 )
+from app.schemas.notifications import (
+    MarkReadIn,
+    NotificationList,
+    NotificationOut,
+)
 from app.schemas.profile import (
     VESANA_TEAM_UPLOADER,
     CheckPreview,
@@ -68,4 +73,7 @@ __all__ = [
     "UploadResult",
     "ReviewItem",
     "RejectIn",
+    "NotificationOut",
+    "NotificationList",
+    "MarkReadIn",
 ]

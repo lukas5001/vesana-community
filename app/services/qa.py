@@ -94,11 +94,6 @@ def create_question(
     db.add(question)
     db.flush()
     db.refresh(question)
-    notifications.enqueue(
-        "question.created",
-        question_id=question.id,
-        actor_uuid=instance_uuid,
-    )
     return question
 
 
@@ -244,12 +239,19 @@ def create_answer(
     db.refresh(answer)
     db.refresh(question)
     _recount_answers(db, question)
+
+    # New answer -> notify the question's author (skipped if they answered
+    # their own question).
     notifications.enqueue(
-        "answer.created",
-        question_id=question_id,
-        answer_id=answer.id,
-        actor_uuid=instance_uuid,
+        db,
         recipient_uuid=question.instance_uuid,
+        actor_uuid=instance_uuid,
+        type="qa_answer",
+        payload={
+            "question_id": question_id,
+            "question_title": question.title_text,
+            "answerer_display": author_display(_display_name_for(db, instance_uuid), instance_uuid),
+        },
     )
     return answer
 
@@ -294,12 +296,19 @@ def accept_answer(
     answer.is_accepted = True
     db.flush()
     db.refresh(answer)
+
+    # Accepted -> notify the answer's author (skipped if they accept their own
+    # answer to their own question).
     notifications.enqueue(
-        "answer.accepted",
-        question_id=question.id,
-        answer_id=answer.id,
-        actor_uuid=caller_uuid,
+        db,
         recipient_uuid=answer.instance_uuid,
+        actor_uuid=caller_uuid,
+        type="answer_accepted",
+        payload={
+            "question_id": question.id,
+            "question_title": question.title_text,
+            "answer_id": answer.id,
+        },
     )
     return answer
 
@@ -332,11 +341,6 @@ def close_as_duplicate(
     question.closed_reason = reason
     db.flush()
     db.refresh(question)
-    notifications.enqueue(
-        "question.closed_duplicate",
-        question_id=question.id,
-        duplicate_of_id=duplicate_of_id,
-    )
     return question
 
 
@@ -360,12 +364,6 @@ def report(
     db.add(moderation_report)
     db.flush()
     db.refresh(moderation_report)
-    notifications.enqueue(
-        "moderation.reported",
-        target_type=target_type,
-        target_id=target_id,
-        reporter_uuid=reporter_uuid,
-    )
     return moderation_report
 
 

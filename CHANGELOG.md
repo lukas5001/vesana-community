@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 — Community notifications (events + poll)
+
+- New `community_events` table (migration `0006_community_events`) and
+  `CommunityEvent` model: a per-instance notification feed. `instance_uuid` is
+  the recipient; `payload_json` (JSONB) holds only small render data.
+- `app.services.notifications.enqueue` now inserts a real event in the SAME
+  transaction as the triggering action; it skips self-notifications
+  (`recipient == actor`) and missing recipients (e.g. official/beta profiles
+  with no uploader).
+- Emit events for: a comment on a profile (`profile_comment`), a reply to a
+  comment (`comment_reply`), a new answer (`qa_answer`), an accepted answer
+  (`answer_accepted`), and upload approve/reject (`profile_approved` /
+  `profile_rejected`).
+- New endpoints: `GET /api/v1/notifications` (`?unread_only`, `?limit`, plus an
+  `unread_count`) and `POST /api/v1/notifications/mark-read` (`{ids: [...]}` or
+  `{all: true}`). Every query is scoped to the caller's own instance — a caller
+  can never read or mark another instance's events.
+- Payloads carry only non-sensitive render data (ids + display strings); never
+  secrets, tokens, or downvote reasons.
+
 ## 0.5.0 — Community upload + review queue
 
 Added self-hoster profile uploads with a heuristic script-gate, immediate
