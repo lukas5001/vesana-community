@@ -37,7 +37,7 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
         session_cookie="vesana_community_session",
-        https_only=False,
+        https_only=settings.SESSION_COOKIE_SECURE,
         same_site="lax",
     )
 
