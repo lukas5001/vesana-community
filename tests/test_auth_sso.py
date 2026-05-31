@@ -59,6 +59,37 @@ def test_auth_sso_sets_session_and_redirects(db_app_client, make_login_jwt):
     assert "SessionInstance" in home.text
 
 
+def test_auth_sso_honours_valid_next_deeplink(db_app_client, make_login_jwt):
+    """A hub-local `next` path deep-links the user after login."""
+    token = make_login_jwt(
+        sub="55555555-5555-5555-5555-555555555556",
+        display_name="DeepLink",
+        jti="sso-next-1",
+    )
+    resp = db_app_client.get(
+        "/auth",
+        params={"token": token, "next": "/questions/abc-123"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/questions/abc-123"
+
+
+def test_auth_sso_rejects_open_redirect_next(db_app_client, make_login_jwt):
+    """🔒 Open-redirect protection: external/protocol-relative `next` → fallback `/`."""
+    for i, bad in enumerate(("//evil.com", "https://evil.com", "/\\evil.com")):
+        token = make_login_jwt(
+            sub="55555555-5555-5555-5555-555555555557",
+            display_name="NoRedirect",
+            jti=f"sso-bad-next-{i}",
+        )
+        resp = db_app_client.get(
+            "/auth", params={"token": token, "next": bad}, follow_redirects=False
+        )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/", bad
+
+
 @requires_db
 def test_refresh_returns_new_token(db_app_client, make_login_jwt):
     token = make_login_jwt(

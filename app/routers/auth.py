@@ -69,20 +69,42 @@ def _verify_and_upsert(token: str, db: Session, settings: Settings) -> Instance:
     return instance
 
 
+def _safe_next(next_path: str | None) -> str:
+    """Nur einen hub-lokalen Pfad zulassen (Open-Redirect-Schutz).
+
+    Erlaubt einen relativen Pfad mit genau einem führenden ``/`` (kein ``//``,
+    kein ``/\\``, kein Schema). Sonst Fallback auf ``/``.
+    """
+    if (
+        isinstance(next_path, str)
+        and next_path.startswith("/")
+        and not next_path.startswith("//")
+        and not next_path.startswith("/\\")
+    ):
+        return next_path
+    return "/"
+
+
 @router.get("/auth")
 def auth_sso(
     token: str,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
+    next: str | None = None,
 ) -> RedirectResponse:
-    """Browser SSO: verify the login JWT, set the session cookie, redirect to /."""
+    """Browser SSO: verify the login JWT, set the session cookie, redirect.
+
+    Optionales ``next`` (hub-lokaler Pfad) erlaubt Deep-Linking nach dem Login
+    (z.B. ``/p/<id>`` oder ``/questions/<id>``); validiert gegen Open-Redirect,
+    Fallback auf ``/``.
+    """
     instance = _verify_and_upsert(token, db, settings)
     request.session["instance_uuid"] = instance.uuid
     # Cache the EFFECTIVE display name (user-chosen, else SSO) in the session so
     # the HTML nav can show who is logged in without a DB hit on every render.
     request.session["display_name"] = instance.effective_name
-    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=_safe_next(next), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/logout")
