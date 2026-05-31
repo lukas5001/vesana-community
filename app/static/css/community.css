@@ -204,6 +204,20 @@ body {
   margin-top: 0;
 }
 
+/* Detail actions (download …) -------------------------------------------- */
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin: 1.25rem 0;
+}
+
+.detail-actions__hint {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
 /* Page head (title + primary action) ------------------------------------- */
 .page-head {
   display: flex;
@@ -246,6 +260,30 @@ body {
 .field__input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* Styled file picker (no more bare white "Browse" button) */
+.field__input[type="file"] {
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.field__input[type="file"]::file-selector-button {
+  margin-right: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.field__input[type="file"]::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .field__hint {

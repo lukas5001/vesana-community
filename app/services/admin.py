@@ -237,6 +237,58 @@ def promote_to_official(db: Session, profile_id: str) -> CommunityProfile:
     return profile
 
 
+_VALID_TIERS = ("official", "beta", "community")
+
+
+def set_tier(db: Session, profile_id: str, tier: str) -> CommunityProfile:
+    """Set a profile's tier to official/beta/community (admin power).
+
+    Curated tiers (official/beta) are also marked approved; community keeps its
+    existing review status. 404 if missing/removed, 400 for an invalid tier.
+    """
+    if tier not in _VALID_TIERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid tier")
+    profile = db.get(CommunityProfile, profile_id)
+    if profile is None or profile.is_removed:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    profile.tier = tier
+    if tier in ("official", "beta"):
+        profile.approved = True
+        profile.review_status = "approved"
+        profile.approved_at = datetime.now(UTC)
+        profile.approved_by = "admin"
+        profile.rejection_reason = None
+    db.flush()
+    db.refresh(profile)
+    return profile
+
+
+def delete_profile(db: Session, profile_id: str) -> CommunityProfile:
+    """Soft-delete a profile (sets ``is_removed``). 404 if missing/already gone."""
+    profile = db.get(CommunityProfile, profile_id)
+    if profile is None or profile.is_removed:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    profile.is_removed = True
+    db.flush()
+    return profile
+
+
+def list_all_profiles(db: Session, limit: int = 500) -> list[CommunityProfile]:
+    """List ALL non-removed profiles for admin management (newest first)."""
+    limit = max(1, min(limit, 1000))
+    profiles = (
+        db.execute(
+            select(CommunityProfile)
+            .where(CommunityProfile.is_removed.is_(False))
+            .order_by(CommunityProfile.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    return list(profiles)
+
+
 def list_promotable(db: Session, limit: int = 200) -> list[CommunityProfile]:
     """List non-official, non-removed profiles (beta + community) for promotion.
 

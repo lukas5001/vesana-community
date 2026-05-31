@@ -3,12 +3,12 @@
 
 {% block admin_content %}
 <p class="admin-hint">
-  Beta- und Community-Profile, die zu <strong>official</strong> befördert werden
-  können. Befördern setzt Tier = official und genehmigt das Profil.
+  Alle Profile. Tier frei ändern (official / beta / community) oder löschen.
+  official/beta werden dabei automatisch genehmigt.
 </p>
 
 {% if not profiles %}
-<p class="admin-empty">Keine beförderbaren Profile.</p>
+<p class="admin-empty">Keine Profile.</p>
 {% else %}
 <table class="admin-table">
   <thead>
@@ -17,7 +17,9 @@
       <th>Vendor</th>
       <th>Tier</th>
       <th>Review</th>
-      <th>Aktion</th>
+      <th>Statistik</th>
+      <th>Tier setzen</th>
+      <th>Löschen</th>
     </tr>
   </thead>
   <tbody>
@@ -27,9 +29,21 @@
       <td>{{ p.vendor or "—" }}</td>
       <td><span class="badge badge--{{ p.tier }}">{{ p.tier }}</span></td>
       <td><span class="badge badge--{{ p.review_status }}">{{ p.review_status }}</span></td>
+      <td class="admin-dim">↓{{ p.download_count }} · ⤓{{ p.import_count }} · ★{{ p.vote_score }}</td>
       <td class="admin-actions">
-        <form method="post" action="/admin/profiles/{{ p.id }}/promote" class="admin-inline">
-          <button class="admin-btn admin-btn--ok" type="submit">→ official</button>
+        <form method="post" action="/admin/profiles/{{ p.id }}/tier" class="admin-inline">
+          <select class="admin-input" name="tier" aria-label="Tier">
+            {% for tr in ['official', 'beta', 'community'] %}
+            <option value="{{ tr }}" {% if p.tier == tr %}selected{% endif %}>{{ tr }}</option>
+            {% endfor %}
+          </select>
+          <button class="admin-btn" type="submit">Setzen</button>
+        </form>
+      </td>
+      <td class="admin-actions">
+        <form method="post" action="/admin/profiles/{{ p.id }}/delete" class="admin-inline"
+              data-confirm="Profil „{{ p.name }}“ wirklich löschen?">
+          <button class="admin-btn admin-btn--bad" type="submit">Löschen</button>
         </form>
       </td>
     </tr>
