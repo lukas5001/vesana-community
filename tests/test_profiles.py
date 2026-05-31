@@ -58,9 +58,46 @@ def test_check_preview_strips_sensitive_fields() -> None:
         ]
     }
     preview = check_preview_from_bundle(bundle)
-    assert preview == [CheckPreview(name="DB ping", check_type="postgres")]
-    # Only the two safe fields exist on the model.
-    assert set(preview[0].model_dump().keys()) == {"name", "check_type"}
+    assert len(preview) == 1
+    c = preview[0]
+    assert c.name == "DB ping"
+    assert c.check_type == "postgres"
+    # 🔒 Security: the preview may now surface SAFE config params, but secret
+    # values, the command body and the host/IP must never appear anywhere.
+    assert c.params == []  # every config key here is secret/host → all dropped
+    dumped = repr(c.model_dump())
+    assert "s3cret" not in dumped
+    assert "10.0.0.5" not in dumped
+    assert "psql" not in dumped
+
+
+def test_check_preview_surfaces_safe_fields() -> None:
+    bundle = {
+        "checks": [
+            {
+                "name": "CPU load",
+                "check_type": "snmp",
+                "description": "CPU via SNMP",
+                "threshold_warn": 80,
+                "threshold_crit": 95,
+                "config": {
+                    "oid": "1.3.6.1.4",
+                    "interval_seconds": 60,
+                    "snmp_community": "public",  # secret → dropped
+                    "host": "10.0.0.9",  # network target → dropped
+                },
+            }
+        ]
+    }
+    c = check_preview_from_bundle(bundle)[0]
+    assert c.interval_seconds == 60
+    assert c.threshold_warn == "80"
+    assert c.threshold_crit == "95"
+    assert c.description == "CPU via SNMP"
+    keys = {p.key for p in c.params}
+    assert "oid" in keys  # safe param surfaces
+    assert "snmp_community" not in keys  # secret dropped
+    assert "host" not in keys  # network target dropped
 
 
 def test_check_preview_handles_type_alias_and_bad_data() -> None:

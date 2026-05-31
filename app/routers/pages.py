@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,7 +28,8 @@ from app.models.instance import Instance
 from app.models.question import Question
 from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
 from app.services import qa as qa_service
-from app.services.comments import author_display, list_thread
+from app.services import uploads as uploads_service
+from app.services.comments import author_display, create_comment, list_thread
 from app.services.profiles import (
     SORT_OPTIONS,
     ProfileFilters,
@@ -25,6 +37,7 @@ from app.services.profiles import (
     latest_version_tag,
     list_profiles,
 )
+from app.services.voting import cast_vote
 from app.templating import templates
 from app.version import VERSION
 
@@ -191,6 +204,60 @@ def questions_page(
     return templates.TemplateResponse(request, "questions.html", context)
 
 
+@router.get("/questions/ask", response_class=HTMLResponse)
+def ask_page(request: Request, instance: SessionInstance) -> HTMLResponse:
+    """Render the 'ask a question' form (template gates on the session)."""
+    return templates.TemplateResponse(
+        request, "ask.html", {"instance": instance, "version": VERSION}
+    )
+
+
+@router.post("/questions/ask")
+def ask_submit(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    title_text: Annotated[str, Form()] = "",
+    body_md: Annotated[str, Form()] = "",
+    tags: Annotated[str | None, Form()] = None,
+):
+    """Create a community question (session-cookie auth)."""
+    if instance is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="sign in required")
+
+    title = (title_text or "").strip()
+    body = (body_md or "").strip()
+    if len(title) < 8:
+        return templates.TemplateResponse(
+            request,
+            "ask.html",
+            {
+                "instance": instance,
+                "version": VERSION,
+                "error": "Please give your question a clear title (at least 8 characters).",
+                "title_text": title,
+                "body_md": body,
+                "tags": tags,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    tag_list = [t.strip() for t in (tags or "").split(",") if t.strip()][:6]
+    question = qa_service.create_question(
+        db,
+        instance_uuid=instance.uuid,
+        title_text=title,
+        body_md=body,
+        tags=tag_list,
+        profile_id=None,
+        is_vesana_team=False,
+    )
+    db.commit()
+    return RedirectResponse(
+        url=f"/questions/{question.id}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
 @router.get("/questions/{question_id}", response_class=HTMLResponse)
 def question_page(
     question_id: str,
@@ -247,3 +314,166 @@ def question_page(
         ),
     }
     return templates.TemplateResponse(request, "question.html", context)
+
+
+@router.get("/upload", response_class=HTMLResponse)
+def upload_page(request: Request, instance: SessionInstance) -> HTMLResponse:
+    """Render the profile upload form (the template gates on the session)."""
+    return templates.TemplateResponse(
+        request, "upload.html", {"instance": instance, "version": VERSION}
+    )
+
+
+@router.post("/upload")
+def upload_submit(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    bundle: Annotated[UploadFile, File()],
+    version_tag: Annotated[str | None, Form()] = None,
+    changelog_md: Annotated[str | None, Form()] = None,
+):
+    """Handle a browser profile upload (session-cookie auth, multipart form).
+
+    Parses the uploaded JSON bundle, runs the same validation + versioning
+    service the machine API uses, then redirects to the new profile's page.
+    """
+    if instance is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="sign in required")
+
+    def _form_error(msg: str) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "upload.html",
+            {
+                "instance": instance,
+                "version": VERSION,
+                "error": msg,
+                "version_tag": version_tag,
+                "changelog_md": changelog_md,
+            },
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    raw = bundle.file.read()
+    if len(raw) > 600_000:
+        return _form_error("That file is too large.")
+    try:
+        parsed = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return _form_error(
+            "That file is not valid JSON. Export the profile bundle from Vesana "
+            "and upload the downloaded .json file."
+        )
+
+    try:
+        validated = uploads_service.validate_bundle(parsed)
+        profile, _version = uploads_service.create_or_version_profile(
+            db,
+            instance_uuid=instance.uuid,
+            bundle=validated,
+            version_tag=(version_tag or None),
+            changelog_md=(changelog_md or None),
+        )
+        db.commit()
+    except HTTPException as exc:
+        db.rollback()
+        return _form_error(str(exc.detail))
+
+    return RedirectResponse(
+        url=f"/p/{profile.id}?uploaded=1", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+def _require_login(instance: Instance | None) -> Instance:
+    if instance is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="sign in required")
+    return instance
+
+
+@router.post("/p/{profile_id}/vote")
+def profile_vote(
+    profile_id: str,
+    db: DbDep,
+    instance: SessionInstance,
+    value: Annotated[int, Form()] = 0,
+):
+    """Up/down/clear the caller's vote on a profile (session-cookie auth)."""
+    inst = _require_login(instance)
+    clamped = 1 if value > 0 else (-1 if value < 0 else 0)
+    cast_vote(db, instance_uuid=inst.uuid, target_type="profile", target_id=profile_id,
+              value=clamped, reason=None)
+    db.commit()
+    return RedirectResponse(url=f"/p/{profile_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/p/{profile_id}/comment")
+def profile_comment(
+    profile_id: str,
+    db: DbDep,
+    instance: SessionInstance,
+    body_md: Annotated[str, Form()] = "",
+    parent_id: Annotated[str | None, Form()] = None,
+):
+    """Post a comment (or reply) on a profile (session-cookie auth)."""
+    inst = _require_login(instance)
+    body = (body_md or "").strip()
+    if body:
+        create_comment(
+            db,
+            profile_id=profile_id,
+            instance_uuid=inst.uuid,
+            body_md=body,
+            parent_id=(parent_id or None),
+        )
+        db.commit()
+    return RedirectResponse(url=f"/p/{profile_id}#comments", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/questions/{question_id}/answer")
+def question_answer(
+    question_id: str,
+    db: DbDep,
+    instance: SessionInstance,
+    body_md: Annotated[str, Form()] = "",
+):
+    """Post an answer to a question (session-cookie auth)."""
+    inst = _require_login(instance)
+    body = (body_md or "").strip()
+    if body:
+        qa_service.create_answer(
+            db,
+            question_id=question_id,
+            instance_uuid=inst.uuid,
+            body_md=body,
+            is_vesana_team=False,
+        )
+        db.commit()
+    return RedirectResponse(
+        url=f"/questions/{question_id}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.get("/account", response_class=HTMLResponse)
+def account_page(request: Request, instance: SessionInstance) -> HTMLResponse:
+    """Account settings (display name). Template gates on the session."""
+    return templates.TemplateResponse(
+        request, "account.html", {"instance": instance, "version": VERSION}
+    )
+
+
+@router.post("/account")
+def account_save(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    chosen_name: Annotated[str, Form()] = "",
+):
+    """Update the caller's community display name (session-cookie auth)."""
+    inst = _require_login(instance)
+    name = (chosen_name or "").strip()[:40]
+    inst.chosen_name = name or None
+    db.commit()
+    # Keep the nav in sync without a re-login.
+    request.session["display_name"] = inst.effective_name
+    return RedirectResponse(url="/account?ok=1", status_code=status.HTTP_303_SEE_OTHER)

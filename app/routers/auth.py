@@ -79,6 +79,16 @@ def auth_sso(
     """Browser SSO: verify the login JWT, set the session cookie, redirect to /."""
     instance = _verify_and_upsert(token, db, settings)
     request.session["instance_uuid"] = instance.uuid
+    # Cache the EFFECTIVE display name (user-chosen, else SSO) in the session so
+    # the HTML nav can show who is logged in without a DB hit on every render.
+    request.session["display_name"] = instance.effective_name
+    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/logout")
+def logout(request: Request) -> RedirectResponse:
+    """Clear the session cookie and return to the browse page."""
+    request.session.clear()
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 

@@ -3,22 +3,23 @@
 {% block title %}Browse profiles &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-{% if instance %}
-<p class="signed-in">Signed in as <strong class="instance-name">{{ instance.display_name }}</strong></p>
-{% endif %}
 <h1>Browse monitoring profiles</h1>
 <p class="lede">Discover ready-made Vesana monitoring profiles. Import them into your instance in one click.</p>
 
-<form class="filters" method="get" action="/browse">
-    <div class="filters-row">
-        <input
-            class="search-box"
-            type="search"
-            name="q"
-            value="{{ q }}"
-            placeholder="Search profiles, vendors, tags…"
-            aria-label="Search profiles"
-        />
+<form class="filters" method="get" action="/browse" data-browse-filters>
+    <div class="filters-row filters-row--search">
+        <div class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input
+                class="search-box"
+                type="search"
+                name="q"
+                value="{{ q }}"
+                placeholder="Search profiles, vendors, tags…"
+                aria-label="Search profiles"
+                autocomplete="off"
+            />
+        </div>
         <select class="select" name="sort" aria-label="Sort by">
             {% for option in sort_options %}
             <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>
@@ -26,7 +27,7 @@
             </option>
             {% endfor %}
         </select>
-        <button class="btn" type="submit">Apply</button>
+        <noscript><button class="btn" type="submit">Apply</button></noscript>
     </div>
 
     <div class="filters-row chips">
@@ -64,6 +65,7 @@
     {% endif %}
 </form>
 
+<div id="browse-results">
 <p class="result-count">{{ total }} profile{{ '' if total == 1 else 's' }} found</p>
 
 {% if profiles %}
@@ -90,6 +92,9 @@
     {% endfor %}
 </div>
 {% else %}
-<p class="empty-state">No profiles match your filters.</p>
+<p class="empty-state">No profiles match your filters. Try a different search or clear the filters.</p>
 {% endif %}
+</div>
+
+<script src="/static/js/community.js" defer></script>
 {% endblock %}

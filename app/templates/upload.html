@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Upload a profile &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+<h1>Share a monitoring profile</h1>
+<p class="lede">
+  Upload a profile bundle exported from your Vesana instance. It goes into the
+  review queue and becomes public once approved.
+</p>
+
+{% if not current_instance %}
+<div class="card">
+  <p>You need to be signed in to upload. Open the Community Hub from your Vesana
+  instance (avatar menu → <strong>Community Hub</strong>) and you will be signed
+  in automatically.</p>
+</div>
+{% else %}
+
+{% if request.query_params.get('ok') %}
+<div class="form-success">Thanks! Your profile was uploaded and is now in the review queue.</div>
+{% endif %}
+
+{% if error %}
+<div class="form-error">{{ error }}</div>
+{% endif %}
+
+<form class="card upload-form" method="post" action="/upload" enctype="multipart/form-data">
+  <label class="field">
+    <span class="field__label">Profile bundle (.json)</span>
+    <input class="field__input" type="file" name="bundle" accept=".json,application/json" required />
+    <span class="field__hint">In Vesana: a profile → Export → the downloaded <code>.json</code> bundle.</span>
+  </label>
+
+  <label class="field">
+    <span class="field__label">Version tag</span>
+    <input class="field__input" type="text" name="version_tag" value="{{ version_tag or '' }}" placeholder="v1" />
+    <span class="field__hint">Optional. Re-uploading with a new tag creates a new version.</span>
+  </label>
+
+  <label class="field">
+    <span class="field__label">What changed?</span>
+    <textarea class="field__input" name="changelog_md" rows="4" placeholder="Short notes about this version (optional)">{{ changelog_md or '' }}</textarea>
+  </label>
+
+  <div class="form-actions">
+    <button class="btn" type="submit">Upload for review</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

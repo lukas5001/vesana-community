@@ -15,8 +15,6 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import (
     HTTPAuthorizationCredentials,
-    HTTPBasic,
-    HTTPBasicCredentials,
     HTTPBearer,
 )
 from sqlalchemy.orm import Session
@@ -27,7 +25,6 @@ from app.db import get_db
 from app.models.instance import Instance
 
 _bearer = HTTPBearer(auto_error=False)
-_basic = HTTPBasic(auto_error=False)
 
 
 def _unauthorized(detail: str) -> HTTPException:
@@ -67,38 +64,38 @@ def get_current_instance(
     return instance
 
 
-def require_admin(
-    credentials: Annotated[HTTPBasicCredentials | None, Depends(_basic)],
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> str:
-    """Require valid HTTP Basic admin credentials (timing-safe comparison).
+def verify_admin_credentials(username: str, password: str, settings: Settings) -> bool:
+    """Timing-safe check of admin username + password against the configured pair.
 
-    Returns the admin username on success.
+    Both fields are compared with ``hmac.compare_digest`` so neither the username
+    nor the password content/length leaks via response timing.
     """
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="admin auth required",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-
-    # Compare both fields with constant-time comparison to avoid leaking either
-    # the username or the password length/content via timing.
     user_ok = hmac.compare_digest(
-        credentials.username.encode("utf-8"),
+        (username or "").encode("utf-8"),
         settings.COMMUNITY_ADMIN_USER.encode("utf-8"),
     )
     pass_ok = hmac.compare_digest(
-        credentials.password.encode("utf-8"),
+        (password or "").encode("utf-8"),
         settings.COMMUNITY_ADMIN_PASSWORD.encode("utf-8"),
     )
-    if not (user_ok and pass_ok):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid admin credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
+    return user_ok and pass_ok
+
+
+def require_admin(request: Request) -> str:
+    """Require an authenticated admin SESSION (set by ``POST /admin/login``).
+
+    The HTML admin area is browser-only, so admin auth lives in the signed
+    session cookie (``is_admin``) — NOT HTTP Basic. Unauthenticated requests are
+    redirected to the login page via a 303 (so a browser lands on the form
+    instead of a credentials popup).
+    """
+    if request.session.get("is_admin"):
+        return request.session.get("admin_user") or "admin"
+    raise HTTPException(
+        status_code=status.HTTP_303_SEE_OTHER,
+        detail="admin login required",
+        headers={"Location": "/admin/login"},
+    )
 
 
 def get_session_instance(

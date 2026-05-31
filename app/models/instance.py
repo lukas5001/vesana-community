@@ -22,7 +22,13 @@ class Instance(Base):
     # so we never depend on a particular UUID representation.
     uuid: Mapped[str] = mapped_column(String(64), primary_key=True)
 
+    # Name from the SSO login JWT. Overwritten on every sign-in, so it is NOT a
+    # good place for a user-chosen name (see ``chosen_name``).
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # User-picked community display name. SSO never touches this; the effective
+    # name is ``chosen_name or display_name`` (see ``effective_name``).
+    chosen_name: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Optional base64-encoded WebP avatar supplied via the login JWT.
     avatar_data: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -35,6 +41,11 @@ class Instance(Base):
     )
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    @property
+    def effective_name(self) -> str:
+        """The name shown across the UI: the user's chosen name, else the SSO name."""
+        return (self.chosen_name or "").strip() or self.display_name
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Instance uuid={self.uuid!r} display_name={self.display_name!r}>"

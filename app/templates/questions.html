@@ -3,14 +3,15 @@
 {% block title %}Questions &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-{% if instance %}
-<p class="signed-in">Signed in as <strong class="instance-name">{{ instance.display_name }}</strong></p>
-{% endif %}
-<h1>Community questions</h1>
-<p class="lede">Ask and answer questions about Vesana monitoring profiles, agents and setups.</p>
-
-{# TODO(client widget): asking, answering, voting and accepting controls land
-   with the client-side widget. Server-side this list is read-only. #}
+<div class="page-head">
+  <div>
+    <h1>Community questions</h1>
+    <p class="lede">Ask and answer questions about Vesana monitoring profiles, agents and setups.</p>
+  </div>
+  {% if current_instance %}
+  <a class="btn" href="/questions/ask">Ask a question</a>
+  {% endif %}
+</div>
 
 <form class="filters" method="get" action="/questions">
     <div class="filters-row">
