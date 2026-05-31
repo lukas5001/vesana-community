@@ -95,15 +95,35 @@ class ProfileDetail(ProfileSummary):
 
 # Config keys whose VALUE must never be shown (credentials etc.) — redacted.
 _SECRET_KEY_HINTS = (
-    "password", "secret", "token", "key", "community", "credential",
-    "auth", "passphrase", "apikey", "api_key", "private",
+    "password",
+    "secret",
+    "token",
+    "key",
+    "community",
+    "credential",
+    "auth",
+    "passphrase",
+    "apikey",
+    "api_key",
+    "private",
 )
 # Config keys dropped entirely: free-text command/script bodies + raw args, and
 # instance-specific network targets (host/ip/…) that leak internal topology and
 # are meaningless to other users (the importer supplies their own).
 _DROP_KEY_HINTS = (
-    "command", "cmd", "script", "body", "powershell", "args", "argument",
-    "host", "hostname", "ip", "address", "target", "endpoint",
+    "command",
+    "cmd",
+    "script",
+    "body",
+    "powershell",
+    "args",
+    "argument",
+    "host",
+    "hostname",
+    "ip",
+    "address",
+    "target",
+    "endpoint",
 )
 _MAX_PARAMS = 12
 _MAX_VALUE_LEN = 120

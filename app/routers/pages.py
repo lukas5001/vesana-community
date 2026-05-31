@@ -253,9 +253,7 @@ def ask_submit(
         is_vesana_team=False,
     )
     db.commit()
-    return RedirectResponse(
-        url=f"/questions/{question.id}", status_code=status.HTTP_303_SEE_OTHER
-    )
+    return RedirectResponse(url=f"/questions/{question.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/questions/{question_id}", response_class=HTMLResponse)
@@ -401,8 +399,14 @@ def profile_vote(
     """Up/down/clear the caller's vote on a profile (session-cookie auth)."""
     inst = _require_login(instance)
     clamped = 1 if value > 0 else (-1 if value < 0 else 0)
-    cast_vote(db, instance_uuid=inst.uuid, target_type="profile", target_id=profile_id,
-              value=clamped, reason=None)
+    cast_vote(
+        db,
+        instance_uuid=inst.uuid,
+        target_type="profile",
+        target_id=profile_id,
+        value=clamped,
+        reason=None,
+    )
     db.commit()
     return RedirectResponse(url=f"/p/{profile_id}", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -449,9 +453,7 @@ def question_answer(
             is_vesana_team=False,
         )
         db.commit()
-    return RedirectResponse(
-        url=f"/questions/{question_id}", status_code=status.HTTP_303_SEE_OTHER
-    )
+    return RedirectResponse(url=f"/questions/{question_id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/account", response_class=HTMLResponse)
