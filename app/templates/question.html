@@ -62,5 +62,17 @@
         </li>
         {% endfor %}
     </ul>
+    {% if question.is_closed %}
+    {% elif current_instance %}
+    <form class="ask-form" method="post" action="/questions/{{ question.id }}/answer">
+        <label class="field">
+            <span class="field__label">Your answer</span>
+            <textarea class="field__input" name="body_md" rows="5" placeholder="Share what you know…" required></textarea>
+        </label>
+        <div class="form-actions"><button class="btn" type="submit">Post answer</button></div>
+    </form>
+    {% else %}
+    <p class="muted">Open the Community Hub from your Vesana instance to answer.</p>
+    {% endif %}
 </section>
 {% endblock %}

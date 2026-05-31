@@ -5,12 +5,17 @@
 {% block content %}
 <p class="breadcrumb"><a href="/browse">&larr; Back to browse</a></p>
 
+{% if request.query_params.get('uploaded') %}
+<div class="form-success">Uploaded! Your profile is in the review queue and becomes public once approved.</div>
+{% endif %}
+
 <div class="detail-head">
     <span class="detail-icon">{{ profile.icon or '📦' }}</span>
     <div class="detail-head-text">
         <div class="detail-title-row">
             <h1>{{ profile.name }}</h1>
             <span class="tier-badge tier-{{ profile.tier }}">{{ profile.tier }}</span>
+            {% if profile.review_status == 'pending' %}<span class="status-badge status-pending">In review</span>{% endif %}
         </div>
         {% if profile.vendor %}<div class="detail-vendor">{{ profile.vendor }}</div>{% endif %}
         <div class="detail-meta">
@@ -25,6 +30,18 @@
     <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">imports</span></div>
     <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">downloads</span></div>
     <div class="stat"><span class="stat-num">{{ profile.vote_score }}</span><span class="stat-label">score</span></div>
+    {% if current_instance %}
+    <div class="vote-actions">
+        <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
+            <input type="hidden" name="value" value="1" />
+            <button class="vote-btn" type="submit" title="Upvote">&#9650;</button>
+        </form>
+        <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
+            <input type="hidden" name="value" value="-1" />
+            <button class="vote-btn" type="submit" title="Downvote">&#9660;</button>
+        </form>
+    </div>
+    {% endif %}
 </div>
 
 <section class="detail-section">
@@ -50,12 +67,30 @@
 
 <section class="detail-section">
     <h2>Checks ({{ check_preview | length }})</h2>
+    <p class="muted check-intro">What this profile monitors. Sensitive values (credentials, hosts, scripts) are never shown.</p>
     {% if check_preview %}
     <ul class="check-list">
         {% for check in check_preview %}
-        <li>
-            <span class="check-name">{{ check.name }}</span>
-            <span class="check-type">{{ check.check_type }}</span>
+        <li class="check-item">
+            <div class="check-item__head">
+                <span class="check-name">{{ check.name }}</span>
+                <span class="check-type">{{ check.check_type }}</span>
+            </div>
+            {% if check.description %}<p class="check-desc">{{ check.description }}</p>{% endif %}
+            {% if check.interval_seconds or check.threshold_warn or check.threshold_crit %}
+            <div class="check-meta">
+                {% if check.interval_seconds %}<span class="check-meta__item">every {{ check.interval_seconds }}s</span>{% endif %}
+                {% if check.threshold_warn %}<span class="check-meta__item check-meta__warn">warn {{ check.threshold_warn }}</span>{% endif %}
+                {% if check.threshold_crit %}<span class="check-meta__item check-meta__crit">crit {{ check.threshold_crit }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if check.params %}
+            <dl class="check-params">
+                {% for p in check.params %}
+                <div class="check-params__row"><dt>{{ p.key }}</dt><dd>{{ p.value }}</dd></div>
+                {% endfor %}
+            </dl>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>
@@ -80,11 +115,17 @@
 </section>
 {% endif %}
 
-<section class="detail-section comments-section">
+<section class="detail-section comments-section" id="comments">
     <h2>Comments ({{ comment_threads | length }})</h2>
-    {# TODO(React embed): posting + voting controls land with the client widget.
-       Server-side we render the thread read-only (escaped markdown, scores,
-       helpful badge). Downvote reasons are NEVER rendered here. #}
+    {% if current_instance %}
+    <form class="comment-form" method="post" action="/p/{{ profile.id }}/comment">
+        <textarea class="field__input" name="body_md" rows="3" placeholder="Add a comment…" required></textarea>
+        <div class="form-actions"><button class="btn" type="submit">Comment</button></div>
+    </form>
+    {% else %}
+    <p class="muted">Open the Community Hub from your Vesana instance to comment.</p>
+    {% endif %}
+    {# Downvote reasons are NEVER rendered here. #}
     {% if not comment_threads %}
     <p class="muted">No comments yet.</p>
     {% endif %}

@@ -79,6 +79,198 @@ body {
   font-size: 0.8rem;
 }
 
+/* Global navigation ------------------------------------------------------- */
+.site-header__inner {
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-right: auto;
+}
+
+.site-nav__link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 0.35rem 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.site-nav__link:hover {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.site-account {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.site-account__name {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.site-account__name:hover {
+  color: var(--accent);
+}
+
+.site-account__suffix {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin-left: 0.15rem;
+}
+
+.site-account__action {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.site-account__action:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.site-account__anon {
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+}
+
+/* Auth card (admin sign-in) ----------------------------------------------- */
+.auth-card {
+  max-width: 380px;
+  margin: 3rem auto;
+  padding: 1.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.auth-card h1 {
+  margin-top: 0;
+}
+
+/* Page head (title + primary action) ------------------------------------- */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Forms (upload, ask, …) -------------------------------------------------- */
+.upload-form,
+.ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.field__input {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field__hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.form-error {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: color-mix(in srgb, #e5484d 16%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, #e5484d 45%, var(--border-default));
+}
+
+.form-success {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--accent-contrast);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border-default));
+}
+
+/* Vote buttons + inline comment/answer forms ------------------------------ */
+.vote-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.vote-form {
+  margin: 0;
+}
+
+.vote-btn {
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.vote-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+}
+
 /* Content ----------------------------------------------------------------- */
 .content {
   flex: 1 0 auto;
@@ -188,6 +380,57 @@ a {
 .search-box {
   flex: 1 1 280px;
   min-width: 200px;
+}
+
+/* Filter polish (instant search) ----------------------------------------- */
+.filters {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.filters-row--search {
+  margin-bottom: 0.9rem;
+}
+
+.search-wrap {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--text-tertiary);
+  font-size: 1.05rem;
+  pointer-events: none;
+}
+
+.search-wrap .search-box {
+  flex: 1 1 auto;
+  width: 100%;
+  padding-left: 2rem;
+}
+
+.search-box:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.chip {
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.chip:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 .btn {
@@ -469,6 +712,96 @@ a {
   background: var(--bg-tertiary);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
+}
+
+/* Status badge (in review, …) -------------------------------------------- */
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+}
+
+.status-pending {
+  color: color-mix(in srgb, var(--warn, #d29922) 80%, var(--text-primary));
+  background: color-mix(in srgb, var(--warn, #d29922) 15%, var(--bg-secondary));
+  border-color: color-mix(in srgb, var(--warn, #d29922) 40%, var(--border-default));
+}
+
+/* Rich check cards -------------------------------------------------------- */
+.check-intro {
+  margin: -0.25rem 0 0.9rem;
+  font-size: 0.85rem;
+}
+
+.check-list li.check-item {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.75rem 0.9rem;
+}
+
+.check-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.check-desc {
+  margin: 0.5rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.check-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.check-meta__item {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.check-meta__warn {
+  color: color-mix(in srgb, var(--warn, #d29922) 75%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--warn, #d29922) 40%, var(--border-default));
+}
+
+.check-meta__crit {
+  color: color-mix(in srgb, var(--crit, #e5484d) 75%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--crit, #e5484d) 40%, var(--border-default));
+}
+
+.check-params {
+  margin: 0.6rem 0 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.check-params__row {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.check-params__row dt {
+  color: var(--text-tertiary);
+  min-width: 9rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.check-params__row dd {
+  margin: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
 }
 
 /* Voting & comments (C4) -------------------------------------------------- */

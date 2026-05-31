@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import get_settings
 from app.routers import (
     admin_api,
+    admin_auth,
     admin_pages,
     auth,
     community_interactions,
@@ -41,6 +42,29 @@ def create_app() -> FastAPI:
         same_site="lax",
     )
 
+    # Strict CSP is safe here: the site has NO inline scripts/styles/handlers
+    # (CSS + JS are external files); only avatar <img> uses a data: URI.
+    _CSP = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self'; "
+        "script-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'"
+    )
+
+    @app.middleware("http")
+    async def _security_headers(request, call_next):
+        """Baseline security headers on every response."""
+        response = await call_next(request)
+        response.headers.setdefault("Content-Security-Policy", _CSP)
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(profiles.router)
@@ -48,7 +72,8 @@ def create_app() -> FastAPI:
     app.include_router(qa.router)
     app.include_router(uploads.router)
     app.include_router(notifications.router)
-    # Admin JSON API (AdminFlag header) + server-rendered admin pages (Basic).
+    # Admin: session-based login page + server-rendered admin pages + JSON API.
+    app.include_router(admin_auth.router)
     app.include_router(admin_api.router)
     app.include_router(admin_pages.router)
     # Pages router owns "/" (the browse view) and "/p/{id}" (detail).

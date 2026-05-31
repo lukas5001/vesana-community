@@ -6,13 +6,13 @@
     <h1 class="card__title">Welcome back</h1>
     <p class="card__lead">
       You are signed in as
-      <strong class="instance-name">{{ instance.display_name }}</strong>.
+      <strong class="instance-name">{{ instance.effective_name }}</strong>.
     </p>
     {% if instance.avatar_data %}
       <img
         class="avatar"
         src="data:image/webp;base64,{{ instance.avatar_data }}"
-        alt="Avatar of {{ instance.display_name }}"
+        alt="Avatar of {{ instance.effective_name }}"
       />
     {% endif %}
     <p class="muted">Instance ID: <code>{{ instance.uuid }}</code></p>
