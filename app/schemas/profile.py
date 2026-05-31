@@ -16,29 +16,26 @@ VESANA_TEAM_UPLOADER = "Vesana Team"
 
 
 class CheckParam(BaseModel):
-    """One safe, human-readable config parameter of a check (key + value)."""
+    """One human-readable setting of a check: a humanised label + a value."""
 
-    key: str
-    value: str
+    key: str  # humanised label, e.g. "SNMP Version"
+    value: str  # display value; secret values are masked to ``•••``
 
 
 class CheckPreview(BaseModel):
-    """A single check exposed in a profile preview.
+    """A single check on a profile — like viewing a service in the Vesana app.
 
-    Exposes WHAT a check monitors and WHEN it alerts — name, type, interval,
-    thresholds, description — plus a safe subset of its config params. Secret-ish
-    values are redacted to ``•••`` and command/script bodies + nested structures
-    are dropped, so an uploaded bundle can never leak credentials through the
-    public preview.
+    Surfaces the check name, type and ALL of its settings (top-level fields such
+    as ``oid`` plus the ``config`` dict, merged and humanised). Secret-VALUED
+    settings are masked to ``•••`` (the setting is still listed so the user knows
+    it exists); nested structures are skipped. An uploaded bundle can therefore
+    never leak credentials through the public preview.
     """
 
     name: str
     check_type: str
-    interval_seconds: int | None = None
-    threshold_warn: str | None = None
-    threshold_crit: str | None = None
     description: str | None = None
-    params: list[CheckParam] = Field(default_factory=list)
+    settings: list[CheckParam] = Field(default_factory=list)
 
 
 class VersionSummary(BaseModel):
@@ -94,11 +91,12 @@ class ProfileDetail(ProfileSummary):
 
 
 # Config keys whose VALUE must never be shown (credentials etc.) — redacted.
+# Setting KEYS whose VALUE is masked to ``•••``. The setting is STILL listed (so
+# the user knows the check uses e.g. an SNMP community) — only the value hides.
 _SECRET_KEY_HINTS = (
     "password",
     "secret",
     "token",
-    "key",
     "community",
     "credential",
     "auth",
@@ -106,27 +104,44 @@ _SECRET_KEY_HINTS = (
     "apikey",
     "api_key",
     "private",
+    "key",
 )
-# Config keys dropped entirely: free-text command/script bodies + raw args, and
-# instance-specific network targets (host/ip/…) that leak internal topology and
-# are meaningless to other users (the importer supplies their own).
-_DROP_KEY_HINTS = (
-    "command",
-    "cmd",
-    "script",
-    "body",
-    "powershell",
-    "args",
-    "argument",
-    "host",
-    "hostname",
-    "ip",
-    "address",
-    "target",
-    "endpoint",
-)
-_MAX_PARAMS = 12
-_MAX_VALUE_LEN = 120
+# Structural keys that are not user-facing settings.
+_SKIP_KEYS = {
+    "name",
+    "check_type",
+    "type",
+    "config",
+    "description",
+    "id",
+    "check_id",
+    "profile_check_id",
+    "profile_id",
+}
+_MAX_SETTINGS = 20
+_MAX_VALUE_LEN = 160
+_ACRONYMS = {
+    "oid": "OID",
+    "snmp": "SNMP",
+    "url": "URL",
+    "uri": "URI",
+    "ip": "IP",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "ssh": "SSH",
+    "tls": "TLS",
+    "ssl": "SSL",
+    "dns": "DNS",
+    "poe": "PoE",
+    "id": "ID",
+    "cpu": "CPU",
+    "ram": "RAM",
+    "api": "API",
+    "tcp": "TCP",
+    "udp": "UDP",
+    "mac": "MAC",
+    "wmi": "WMI",
+}
 
 
 def _looks_secret(key: str) -> bool:
@@ -134,43 +149,64 @@ def _looks_secret(key: str) -> bool:
     return any(h in k for h in _SECRET_KEY_HINTS)
 
 
-def _opt_str(value: Any) -> str | None:
-    if value is None or isinstance(value, (dict, list, bool)):
+def _humanize(key: str) -> str:
+    words = key.replace("-", " ").replace("_", " ").split()
+    parts = [_ACRONYMS.get(w.lower(), w[:1].upper() + w[1:]) for w in words]
+    return " ".join(parts) or key
+
+
+def _setting_value(value: Any) -> str | None:
+    if value is None or isinstance(value, (dict, list)):
         return None
+    if isinstance(value, bool):
+        return "yes" if value else "no"
     text = str(value).strip()
-    return text or None
+    if not text:
+        return None
+    if len(text) > _MAX_VALUE_LEN:
+        text = text[:_MAX_VALUE_LEN] + "…"
+    return text
 
 
-def _safe_params(config: Any) -> list[CheckParam]:
-    """A redacted, display-safe view of a check's config dict."""
-    if not isinstance(config, dict):
-        return []
+def _collect_settings(check: dict, config: dict) -> list[CheckParam]:
+    """Merge top-level check fields + config into humanised, masked settings.
+
+    Mirrors how a service is shown in the Vesana app: every configured setting is
+    listed (humanised label). Secret-valued settings are masked; nested values
+    and structural keys are skipped.
+    """
     out: list[CheckParam] = []
-    for key, value in config.items():
-        if not isinstance(key, str):
+    seen: set[str] = set()
+    for source in (check, config):
+        if not isinstance(source, dict):
             continue
-        kl = key.lower()
-        # Drop entirely: secret-ish keys, command/script bodies, network targets.
-        if _looks_secret(key) or any(d in kl for d in _DROP_KEY_HINTS):
-            continue
-        if isinstance(value, (dict, list)) or value is None:
-            continue  # don't render nested structures or empties
-        sval = ("yes" if value else "no") if isinstance(value, bool) else str(value)
-        if len(sval) > _MAX_VALUE_LEN:
-            sval = sval[:_MAX_VALUE_LEN] + "…"
-        out.append(CheckParam(key=key, value=sval))
-        if len(out) >= _MAX_PARAMS:
-            break
+        for key, value in source.items():
+            if not isinstance(key, str):
+                continue
+            kl = key.lower()
+            if kl in _SKIP_KEYS or kl in seen:
+                continue
+            if _looks_secret(key):
+                seen.add(kl)
+                out.append(CheckParam(key=_humanize(key), value="•••"))
+            else:
+                sval = _setting_value(value)
+                if sval is None:
+                    continue
+                seen.add(kl)
+                out.append(CheckParam(key=_humanize(key), value=sval))
+            if len(out) >= _MAX_SETTINGS:
+                return out
     return out
 
 
 def check_preview_from_bundle(bundle: dict[str, Any] | None) -> list[CheckPreview]:
-    """Derive a safe, informative check preview from a profile bundle.
+    """Derive a safe, informative per-check settings view from a profile bundle.
 
-    Exposes name/type/interval/thresholds/description + a redacted config view
-    (see ``CheckPreview``). Secrets are masked and command/script bodies dropped,
-    so an untrusted uploaded bundle cannot leak credentials. Malformed or missing
-    data degrades gracefully to an empty list.
+    Shows every configured setting of each check (top-level fields like ``oid``
+    plus the ``config`` dict, humanised), with secret VALUES masked. An untrusted
+    uploaded bundle can never leak credentials. Malformed/missing data degrades
+    gracefully to an empty list.
     """
     if not isinstance(bundle, dict):
         return []
@@ -187,27 +223,13 @@ def check_preview_from_bundle(bundle: dict[str, Any] | None) -> list[CheckPrevie
         if not isinstance(name, str) or not isinstance(check_type, str):
             continue
         config = check.get("config") if isinstance(check.get("config"), dict) else {}
-
-        def _pick(*keys: str, _check=check, _config=config) -> Any:
-            for source in (_check, _config):
-                for k in keys:
-                    if isinstance(source, dict) and source.get(k) is not None:
-                        return source.get(k)
-            return None
-
-        interval = _pick("interval_seconds", "interval")
-        interval_seconds = (
-            interval if isinstance(interval, int) and not isinstance(interval, bool) else None
-        )
+        desc = check.get("description")
         preview.append(
             CheckPreview(
                 name=name,
                 check_type=check_type,
-                interval_seconds=interval_seconds,
-                threshold_warn=_opt_str(_pick("threshold_warn", "warn", "warning")),
-                threshold_crit=_opt_str(_pick("threshold_crit", "crit", "critical")),
-                description=_opt_str(check.get("description")),
-                params=_safe_params(config),
+                description=(desc.strip() if isinstance(desc, str) and desc.strip() else None),
+                settings=_collect_settings(check, config),
             )
         )
     return preview

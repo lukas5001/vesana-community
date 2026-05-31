@@ -3,10 +3,13 @@
 
 {% block header_extra %}
 <nav class="site-nav">
-  <a class="site-nav__link" href="/">Zur Community</a>
+  <a class="site-nav__link" href="/">{{ t('nav.to_community') }}</a>
 </nav>
 <div class="site-account">
-  <a class="site-account__action" href="/admin/logout">Abmelden</a>
+  <span class="lang-switch">
+    {% for l in languages %}{% if l == lang %}<span class="lang-switch__active">{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}">{{ l|upper }}</a>{% endif %}{% endfor %}
+  </span>
+  <a class="site-account__action" href="/admin/logout">{{ t('nav.signout') }}</a>
 </div>
 {% endblock %}
 

@@ -3,10 +3,10 @@
 {% block title %}{{ profile.name }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-<p class="breadcrumb"><a href="/browse">&larr; Back to browse</a></p>
+<p class="breadcrumb"><a href="/browse">{{ t('common.back_to_browse') }}</a></p>
 
 {% if request.query_params.get('uploaded') %}
-<div class="form-success">Uploaded! Your profile is in the review queue and becomes public once approved.</div>
+<div class="form-success">{{ t('detail.uploaded_ok') }}</div>
 {% endif %}
 
 <div class="detail-head">
@@ -15,11 +15,11 @@
         <div class="detail-title-row">
             <h1>{{ profile.name }}</h1>
             <span class="tier-badge tier-{{ profile.tier }}">{{ profile.tier }}</span>
-            {% if profile.review_status == 'pending' %}<span class="status-badge status-pending">In review</span>{% endif %}
+            {% if profile.review_status == 'pending' %}<span class="status-badge status-pending">{{ t('detail.in_review') }}</span>{% endif %}
         </div>
         {% if profile.vendor %}<div class="detail-vendor">{{ profile.vendor }}</div>{% endif %}
         <div class="detail-meta">
-            <span>by {{ uploader }}</span>
+            <span>{{ t('detail.by') }} {{ uploader }}</span>
             {% if profile.category %}<span>&middot; {{ profile.category }}</span>{% endif %}
             {% if latest_version_tag %}<span>&middot; v{{ latest_version_tag }}</span>{% endif %}
         </div>
@@ -27,47 +27,43 @@
 </div>
 
 <div class="detail-stats">
-    <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">imports</span></div>
-    <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">downloads</span></div>
-    <div class="stat"><span class="stat-num">{{ profile.vote_score }}</span><span class="stat-label">score</span></div>
+    <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">{{ t('browse.stat_imports') }}</span></div>
+    <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">{{ t('browse.stat_downloads') }}</span></div>
+    <div class="stat"><span class="stat-num">{{ profile.vote_score }}</span><span class="stat-label">{{ t('browse.stat_score') }}</span></div>
     {% if current_instance %}
     <div class="vote-actions">
         <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
             <input type="hidden" name="value" value="1" />
-            <button class="vote-btn" type="submit" title="Upvote">&#9650;</button>
+            <button class="vote-btn" type="submit" title="{{ t('detail.upvote') }}">&#9650;</button>
         </form>
         <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
             <input type="hidden" name="value" value="-1" />
-            <button class="vote-btn" type="submit" title="Downvote">&#9660;</button>
+            <button class="vote-btn" type="submit" title="{{ t('detail.downvote') }}">&#9660;</button>
         </form>
     </div>
     {% endif %}
 </div>
 
 <section class="detail-section">
-    <h2>Description</h2>
+    <h2>{{ t('detail.description') }}</h2>
     <div class="markdown-body">
-        {% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">No description provided.</p>{% endif %}
+        {% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">{{ t('detail.no_description') }}</p>{% endif %}
     </div>
 </section>
 
 <section class="detail-section">
-    <h2>Compatibility</h2>
+    <h2>{{ t('detail.compatibility') }}</h2>
     <ul class="compat-list">
-        <li>Minimum Vesana version:
-            <strong>{{ profile.vesana_min_version or 'any' }}</strong></li>
-        <li>Requires agent:
-            <strong>{{ 'yes' if profile.requires_agent else 'no' }}</strong></li>
-        <li>Requires collector:
-            <strong>{{ 'yes' if profile.requires_collector else 'no' }}</strong></li>
-        <li>Requires SNMP:
-            <strong>{{ 'yes' if profile.requires_snmp else 'no' }}</strong></li>
+        <li>{{ t('detail.min_version') }}: <strong>{{ profile.vesana_min_version or t('common.any') }}</strong></li>
+        <li>{{ t('detail.requires_agent') }}: <strong>{{ t('common.yes') if profile.requires_agent else t('common.no') }}</strong></li>
+        <li>{{ t('detail.requires_collector') }}: <strong>{{ t('common.yes') if profile.requires_collector else t('common.no') }}</strong></li>
+        <li>{{ t('detail.requires_snmp') }}: <strong>{{ t('common.yes') if profile.requires_snmp else t('common.no') }}</strong></li>
     </ul>
 </section>
 
 <section class="detail-section">
-    <h2>Checks ({{ check_preview | length }})</h2>
-    <p class="muted check-intro">What this profile monitors. Sensitive values (credentials, hosts, scripts) are never shown.</p>
+    <h2>{{ t('detail.checks') }} ({{ check_preview | length }})</h2>
+    <p class="muted check-intro">{{ t('detail.checks_intro') }}</p>
     {% if check_preview %}
     <ul class="check-list">
         {% for check in check_preview %}
@@ -77,17 +73,10 @@
                 <span class="check-type">{{ check.check_type }}</span>
             </div>
             {% if check.description %}<p class="check-desc">{{ check.description }}</p>{% endif %}
-            {% if check.interval_seconds or check.threshold_warn or check.threshold_crit %}
-            <div class="check-meta">
-                {% if check.interval_seconds %}<span class="check-meta__item">every {{ check.interval_seconds }}s</span>{% endif %}
-                {% if check.threshold_warn %}<span class="check-meta__item check-meta__warn">warn {{ check.threshold_warn }}</span>{% endif %}
-                {% if check.threshold_crit %}<span class="check-meta__item check-meta__crit">crit {{ check.threshold_crit }}</span>{% endif %}
-            </div>
-            {% endif %}
-            {% if check.params %}
+            {% if check.settings %}
             <dl class="check-params">
-                {% for p in check.params %}
-                <div class="check-params__row"><dt>{{ p.key }}</dt><dd>{{ p.value }}</dd></div>
+                {% for s in check.settings %}
+                <div class="check-params__row"><dt>{{ s.key }}</dt><dd>{{ s.value }}</dd></div>
                 {% endfor %}
             </dl>
             {% endif %}
@@ -95,13 +84,13 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p class="muted">This profile defines no preview-able checks.</p>
+    <p class="muted">{{ t('detail.no_checks') }}</p>
     {% endif %}
 </section>
 
 {% if profile.tags %}
 <section class="detail-section">
-    <h2>Tags</h2>
+    <h2>{{ t('detail.tags') }}</h2>
     <div class="card-tags">
         {% for tag in profile.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
     </div>
@@ -110,24 +99,23 @@
 
 {% if current_version and current_version.changelog_md %}
 <section class="detail-section">
-    <h2>Changelog (v{{ current_version.version_tag }})</h2>
+    <h2>{{ t('detail.changelog') }} (v{{ current_version.version_tag }})</h2>
     <div class="markdown-body">{{ current_version.changelog_md | markdown_safe }}</div>
 </section>
 {% endif %}
 
 <section class="detail-section comments-section" id="comments">
-    <h2>Comments ({{ comment_threads | length }})</h2>
+    <h2>{{ t('detail.comments') }} ({{ comment_threads | length }})</h2>
     {% if current_instance %}
     <form class="comment-form" method="post" action="/p/{{ profile.id }}/comment">
-        <textarea class="field__input" name="body_md" rows="3" placeholder="Add a comment…" required></textarea>
-        <div class="form-actions"><button class="btn" type="submit">Comment</button></div>
+        <textarea class="field__input" name="body_md" rows="3" placeholder="{{ t('detail.comment_ph') }}" required></textarea>
+        <div class="form-actions"><button class="btn" type="submit">{{ t('detail.comment_btn') }}</button></div>
     </form>
     {% else %}
-    <p class="muted">Open the Community Hub from your Vesana instance to comment.</p>
+    <p class="muted">{{ t('detail.comment_signin') }}</p>
     {% endif %}
-    {# Downvote reasons are NEVER rendered here. #}
     {% if not comment_threads %}
-    <p class="muted">No comments yet.</p>
+    <p class="muted">{{ t('detail.no_comments') }}</p>
     {% endif %}
     <ul class="comment-list">
         {% for thread in comment_threads %}
@@ -135,12 +123,11 @@
         <li class="comment{% if c.is_helpful %} comment-helpful{% endif %}">
             <div class="comment-head">
                 <span class="comment-author">{{ c.author_display }}</span>
-                {% if c.is_helpful %}<span class="helpful-badge">Helpful</span>{% endif %}
-                <span class="vote-pill" title="Score">{{ c.vote_score }}</span>
-                {% if c.reply_count %}<span class="muted reply-count">{{ c.reply_count }} repl{{ 'y' if c.reply_count == 1 else 'ies' }}</span>{% endif %}
+                {% if c.is_helpful %}<span class="helpful-badge">{{ t('detail.helpful') }}</span>{% endif %}
+                <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ c.vote_score }}</span>
             </div>
             <div class="comment-body markdown-body">
-                {% if c.body_md is none %}<em class="muted">[removed]</em>{% else %}{{ c.body_md | markdown_safe }}{% endif %}
+                {% if c.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ c.body_md | markdown_safe }}{% endif %}
             </div>
             {% if thread.replies %}
             <ul class="reply-list">
@@ -148,11 +135,11 @@
                 <li class="comment reply{% if r.is_helpful %} comment-helpful{% endif %}">
                     <div class="comment-head">
                         <span class="comment-author">{{ r.author_display }}</span>
-                        {% if r.is_helpful %}<span class="helpful-badge">Helpful</span>{% endif %}
-                        <span class="vote-pill" title="Score">{{ r.vote_score }}</span>
+                        {% if r.is_helpful %}<span class="helpful-badge">{{ t('detail.helpful') }}</span>{% endif %}
+                        <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ r.vote_score }}</span>
                     </div>
                     <div class="comment-body markdown-body">
-                        {% if r.body_md is none %}<em class="muted">[removed]</em>{% else %}{{ r.body_md | markdown_safe }}{% endif %}
+                        {% if r.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ r.body_md | markdown_safe }}{% endif %}
                     </div>
                 </li>
                 {% endfor %}
@@ -164,22 +151,22 @@
 </section>
 
 <section class="detail-section related-questions-section">
-    <h2>Zugehörige Fragen ({{ related_questions | length }})</h2>
+    <h2>{{ t('detail.related_questions') }} ({{ related_questions | length }})</h2>
     {% if not related_questions %}
-    <p class="muted">No questions reference this profile yet.</p>
+    <p class="muted">{{ t('detail.no_related') }}</p>
     {% else %}
     <ul class="question-list">
         {% for q in related_questions %}
         <li class="question-row">
             <div class="question-row__stats">
-                <span class="vote-pill" title="Score">{{ q.vote_score }}</span>
-                <span class="answer-count" title="Answers">{{ q.answer_count }} ans</span>
+                <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ q.vote_score }}</span>
+                <span class="answer-count" title="{{ t('qa.answers', count=q.answer_count) }}">{{ q.answer_count }} {{ t('detail.answers_short') }}</span>
             </div>
             <div class="question-row__body">
                 <a class="question-title" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
                 <div class="question-row__meta">
-                    {% if q.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
-                    {% if q.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
+                    {% if q.is_vesana_team %}<span class="vesana-team-badge">{{ t('qa.team') }}</span>{% endif %}
+                    {% if q.is_closed %}<span class="closed-badge">{{ t('qa.closed') }}</span>{% endif %}
                 </div>
             </div>
         </li>

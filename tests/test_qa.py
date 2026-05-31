@@ -63,7 +63,8 @@ def test_answerin_accepts_normal_body():
 
 
 def test_author_display_fallback_for_qa():
-    assert author_display(None, "abcd1234efgh") == "instanz-abcd1234"
+    # No "instanz-…" anywhere: missing names become a clean @handle.
+    assert author_display(None, "abcd1234efgh") == "@abcd1234"
 
 
 # --- DB helpers -------------------------------------------------------------

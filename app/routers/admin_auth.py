@@ -16,7 +16,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.auth.deps import verify_admin_credentials
 from app.config import get_settings
+from app.i18n import normalize_lang, translate
 from app.templating import templates
+
+
+def _t(request: Request, key: str) -> str:
+    return translate(normalize_lang(request.cookies.get("lang")), key)
+
 
 router = APIRouter(tags=["admin"])
 
@@ -71,7 +77,7 @@ def admin_login_submit(
         return templates.TemplateResponse(
             request,
             "admin/login.html",
-            {"error": "Too many attempts. Please wait a few minutes and try again."},
+            {"error": _t(request, "adminlogin.locked")},
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
@@ -86,7 +92,7 @@ def admin_login_submit(
     return templates.TemplateResponse(
         request,
         "admin/login.html",
-        {"error": "Invalid username or password."},
+        {"error": _t(request, "adminlogin.err")},
         status_code=status.HTTP_401_UNAUTHORIZED,
     )
 

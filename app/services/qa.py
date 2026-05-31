@@ -41,16 +41,18 @@ def clamp_limit(limit: int | None) -> int:
 
 def _display_name_for(db: Session, instance_uuid: str) -> str | None:
     instance = db.get(Instance, instance_uuid)
-    return instance.display_name if instance is not None else None
+    return instance.effective_name if instance is not None else None
 
 
 def display_names_for(db: Session, uuids: list[str]) -> dict[str, str | None]:
     if not uuids:
         return {}
     rows = db.execute(
-        select(Instance.uuid, Instance.display_name).where(Instance.uuid.in_(uuids))
+        select(Instance.uuid, Instance.display_name, Instance.chosen_name).where(
+            Instance.uuid.in_(uuids)
+        )
     ).all()
-    return {uuid_: display_name for uuid_, display_name in rows}
+    return {uuid_: (chosen or display) for uuid_, display, chosen in rows}
 
 
 def _require_question(db: Session, question_id: str) -> Question:

@@ -1,35 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Account &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('account.title') }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-<h1>Your account</h1>
+<h1>{{ t('account.title') }}</h1>
 
 {% if not current_instance %}
-<div class="card">
-  <p>You are not signed in. Open the Community Hub from your Vesana instance
-  (avatar menu → <strong>Community Hub</strong>).</p>
-</div>
+<div class="card"><p>{{ t('common.signin_hint') }}</p></div>
 {% else %}
 
-{% if request.query_params.get('ok') %}
-<div class="form-success">Saved.</div>
-{% endif %}
+{% if request.query_params.get('ok') %}<div class="form-success">{{ t('common.saved') }}</div>{% endif %}
 
 <form class="card ask-form" method="post" action="/account">
   <label class="field">
-    <span class="field__label">Display name</span>
+    <span class="field__label">{{ t('account.name') }}</span>
     <input class="field__input" type="text" name="chosen_name" maxlength="40"
-           value="{{ instance.chosen_name or '' }}"
-           placeholder="{{ instance.display_name }}" />
-    <span class="field__hint">
-      This is how you appear across the community. Shown with a short
-      <code>#{{ current_instance.suffix }}</code> suffix so people with the same
-      name stay distinguishable. Leave empty to use the default.
-    </span>
+           value="{{ instance.chosen_name or '' }}" placeholder="{{ instance.display_name }}" />
+    <span class="field__hint">{{ t('account.name_hint', suffix=current_instance.suffix) }}</span>
   </label>
   <div class="form-actions">
-    <button class="btn" type="submit">Save</button>
+    <button class="btn" type="submit">{{ t('common.save') }}</button>
   </div>
 </form>
 {% endif %}

@@ -1,72 +1,54 @@
 {% extends "base.html" %}
 
-{% block title %}Browse profiles &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('browse.title') }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-<h1>Browse monitoring profiles</h1>
-<p class="lede">Discover ready-made Vesana monitoring profiles. Import them into your instance in one click.</p>
+<h1>{{ t('browse.title') }}</h1>
+<p class="lede">{{ t('browse.lede') }}</p>
 
 <form class="filters" method="get" action="/browse" data-browse-filters>
     <div class="filters-row filters-row--search">
         <div class="search-wrap">
             <span class="search-icon" aria-hidden="true">⌕</span>
-            <input
-                class="search-box"
-                type="search"
-                name="q"
-                value="{{ q }}"
-                placeholder="Search profiles, vendors, tags…"
-                aria-label="Search profiles"
-                autocomplete="off"
-            />
+            <input class="search-box" type="search" name="q" value="{{ q }}"
+                   placeholder="{{ t('browse.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
         </div>
-        <select class="select" name="sort" aria-label="Sort by">
+        <select class="select" name="sort" aria-label="{{ t('common.sort') }}">
             {% for option in sort_options %}
-            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>
-                {{ option | capitalize }}
-            </option>
+            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>{{ option | capitalize }}</option>
             {% endfor %}
         </select>
-        <noscript><button class="btn" type="submit">Apply</button></noscript>
+        {% if categories %}
+        <select class="select" name="category" aria-label="{{ t('browse.category') }}">
+            <option value="">{{ t('browse.category') }}: {{ t('common.all') }}</option>
+            {% for c in categories %}<option value="{{ c }}" {% if active_category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        {% if vendors %}
+        <select class="select" name="vendor" aria-label="{{ t('browse.vendor') }}">
+            <option value="">{{ t('browse.vendor') }}: {{ t('common.all') }}</option>
+            {% for v in vendors %}<option value="{{ v }}" {% if active_vendor == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <noscript><button class="btn" type="submit">{{ t('common.search') }}</button></noscript>
     </div>
 
     <div class="filters-row chips">
-        <span class="chip-label">Tier</span>
+        <span class="chip-label">{{ t('browse.tier') }}</span>
         <a class="chip {% if not active_tier %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
-        {% for t in ['official', 'beta', 'community'] %}
-        <a class="chip chip-tier-{{ t }} {% if active_tier == t %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}tier={{ t }}&sort={{ active_sort }}">{{ t }}</a>
+           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">{{ t('common.all') }}</a>
+        {% for tr in ['official', 'beta', 'community'] %}
+        <a class="chip chip-tier-{{ tr }} {% if active_tier == tr %}chip-active{% endif %}"
+           href="/browse?{% if q %}q={{ q }}&{% endif %}tier={{ tr }}&sort={{ active_sort }}">{{ tr }}</a>
         {% endfor %}
+        {% if active_tier or active_category or active_vendor or q %}
+        <a class="chip-clear" href="/browse">{{ t('common.clear') }}</a>
+        {% endif %}
     </div>
-
-    {% if categories %}
-    <div class="filters-row chips">
-        <span class="chip-label">Category</span>
-        <a class="chip {% if not active_category %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
-        {% for c in categories %}
-        <a class="chip {% if active_category == c %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}category={{ c }}&sort={{ active_sort }}">{{ c }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if vendors %}
-    <div class="filters-row chips">
-        <span class="chip-label">Vendor</span>
-        <a class="chip {% if not active_vendor %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">All</a>
-        {% for v in vendors %}
-        <a class="chip {% if active_vendor == v %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}vendor={{ v }}&sort={{ active_sort }}">{{ v }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
 </form>
 
-<div id="browse-results">
-<p class="result-count">{{ total }} profile{{ '' if total == 1 else 's' }} found</p>
+<div id="browse-results" data-results>
+<p class="result-count">{{ t('browse.count', count=total) }}</p>
 
 {% if profiles %}
 <div class="profile-grid">
@@ -79,9 +61,9 @@
         <h3 class="card-name">{{ p.name }}</h3>
         {% if p.vendor %}<div class="card-vendor">{{ p.vendor }}</div>{% endif %}
         <div class="card-stats">
-            <span title="Imports">⤓ {{ p.import_count }}</span>
-            <span title="Downloads">↓ {{ p.download_count }}</span>
-            <span title="Score">★ {{ p.vote_score }}</span>
+            <span title="{{ t('browse.stat_imports') }}">⤓ {{ p.import_count }}</span>
+            <span title="{{ t('browse.stat_downloads') }}">↓ {{ p.download_count }}</span>
+            <span title="{{ t('browse.stat_score') }}">★ {{ p.vote_score }}</span>
         </div>
         {% if p.tags %}
         <div class="card-tags">
@@ -92,7 +74,7 @@
     {% endfor %}
 </div>
 {% else %}
-<p class="empty-state">No profiles match your filters. Try a different search or clear the filters.</p>
+<p class="empty-state">{{ t('browse.empty') }}</p>
 {% endif %}
 </div>
 

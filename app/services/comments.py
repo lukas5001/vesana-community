@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.identity import public_name
 from app.models.community_profile import CommunityProfile
 from app.models.instance import Instance
 from app.models.moderation_report import ModerationReport
@@ -42,18 +43,20 @@ def within_edit_window(created_at: datetime, now: datetime | None = None) -> boo
 
 
 def author_display(display_name: str | None, instance_uuid: str) -> str:
-    if display_name and display_name.strip():
-        return display_name
-    return f"instanz-{instance_uuid[:8]}"
+    # ``display_name`` here is already the effective name (chosen ← raw); map the
+    # auto default to a clean @handle so ``instanz-…`` never shows.
+    return public_name(display_name, instance_uuid)
 
 
 def _display_names_for(db: Session, uuids: list[str]) -> dict[str, str | None]:
     if not uuids:
         return {}
     rows = db.execute(
-        select(Instance.uuid, Instance.display_name).where(Instance.uuid.in_(uuids))
+        select(Instance.uuid, Instance.display_name, Instance.chosen_name).where(
+            Instance.uuid.in_(uuids)
+        )
     ).all()
-    return {uuid_: display_name for uuid_, display_name in rows}
+    return {uuid_: (chosen or display) for uuid_, display, chosen in rows}
 
 
 def _require_profile(db: Session, profile_id: str) -> CommunityProfile:

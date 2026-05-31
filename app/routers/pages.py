@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.deps import get_session_instance
 from app.db import get_db
+from app.identity import public_name
 from app.models.community_profile import CommunityProfile
 from app.models.instance import Instance
 from app.models.question import Question
@@ -45,6 +46,13 @@ router = APIRouter(tags=["pages"])
 
 DbDep = Annotated[Session, Depends(get_db)]
 SessionInstance = Annotated[Instance | None, Depends(get_session_instance)]
+
+
+def _t(request: Request, key: str, **kwargs) -> str:
+    """Translate a key in the request's language (for messages set in routes)."""
+    from app.i18n import normalize_lang, translate
+
+    return translate(normalize_lang(request.cookies.get("lang")), key, **kwargs)
 
 
 def _distinct_values(db: Session, column) -> list[str]:
@@ -126,8 +134,12 @@ def detail_page(
     else:
         uploader_instance = db.get(Instance, profile.uploader_instance_uuid)
         uploader = (
-            uploader_instance.display_name
-            if uploader_instance is not None and uploader_instance.display_name
+            public_name(
+                uploader_instance.display_name,
+                uploader_instance.uuid,
+                uploader_instance.chosen_name,
+            )
+            if uploader_instance is not None
             else VESANA_TEAM_UPLOADER
         )
     # Server-render the comment thread read-only. The caller is the
@@ -161,9 +173,7 @@ def _question_card(db: Session, question: Question) -> dict:
         "id": question.id,
         "title_text": question.title_text,
         "author_display": author_display(
-            (db.get(Instance, question.instance_uuid).display_name)
-            if db.get(Instance, question.instance_uuid) is not None
-            else None,
+            qa_service._display_name_for(db, question.instance_uuid),
             question.instance_uuid,
         ),
         "is_vesana_team": question.is_vesana_team,
@@ -234,7 +244,7 @@ def ask_submit(
             {
                 "instance": instance,
                 "version": VERSION,
-                "error": "Please give your question a clear title (at least 8 characters).",
+                "error": _t(request, "qa.title_short"),
                 "title_text": title,
                 "body_md": body,
                 "tags": tags,
@@ -355,14 +365,11 @@ def upload_submit(
 
     raw = bundle.file.read()
     if len(raw) > 600_000:
-        return _form_error("That file is too large.")
+        return _form_error(_t(request, "upload.err_large"))
     try:
         parsed = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
-        return _form_error(
-            "That file is not valid JSON. Export the profile bundle from Vesana "
-            "and upload the downloaded .json file."
-        )
+        return _form_error(_t(request, "upload.err_json"))
 
     try:
         validated = uploads_service.validate_bundle(parsed)
@@ -454,6 +461,37 @@ def question_answer(
         )
         db.commit()
     return RedirectResponse(url=f"/questions/{question_id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/lang/{code}")
+def set_language(code: str, request: Request) -> RedirectResponse:
+    """Set the UI language cookie (de/en) and return to where the user was."""
+    from urllib.parse import urlparse
+
+    from app.config import get_settings
+    from app.i18n import normalize_lang
+
+    code = normalize_lang(code)
+    # Open-redirect safe: only honour the referer's PATH on our own site.
+    target = "/"
+    referer = request.headers.get("referer", "")
+    if referer:
+        try:
+            parsed = urlparse(referer)
+            if parsed.path.startswith("/") and not parsed.path.startswith("//"):
+                target = parsed.path + (("?" + parsed.query) if parsed.query else "")
+        except ValueError:
+            target = "/"
+    resp = RedirectResponse(url=target, status_code=status.HTTP_303_SEE_OTHER)
+    resp.set_cookie(
+        "lang",
+        code,
+        max_age=60 * 60 * 24 * 365,
+        path="/",
+        samesite="lax",
+        secure=get_settings().SESSION_COOKIE_SECURE,
+    )
+    return resp
 
 
 @router.get("/account", response_class=HTMLResponse)
