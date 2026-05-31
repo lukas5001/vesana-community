@@ -112,6 +112,31 @@ def list_profiles_endpoint(
     )
 
 
+@router.get("/match-rules")
+def profile_match_rules(db: DbDep) -> list[dict[str, Any]]:
+    """Discovery match_rules of all visible profiles (community-first classifier).
+
+    A Vesana instance fetches this to classify discovered devices against the
+    community catalog and suggest a profile to import. Registered BEFORE the
+    ``/{profile_id}`` route so "match-rules" is not read as an id.
+    """
+    rows = db.execute(
+        select(
+            CommunityProfile.id,
+            CommunityProfile.name,
+            CommunityProfile.tier,
+            CommunityProfile.match_rules,
+        ).where(
+            CommunityProfile.is_removed.is_(False),
+            CommunityProfile.match_rules.isnot(None),
+        )
+    ).all()
+    return [
+        {"community_id": r.id, "name": r.name, "tier": r.tier, "match_rules": r.match_rules}
+        for r in rows
+    ]
+
+
 @router.get("/{profile_id}", response_model=ProfileDetail)
 def get_profile_endpoint(profile_id: str, db: DbDep) -> ProfileDetail:
     profile = get_profile(db, profile_id)

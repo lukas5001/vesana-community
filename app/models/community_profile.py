@@ -62,6 +62,9 @@ class CommunityProfile(Base):
         Integer, server_default="0", nullable=False, default=0
     )
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    # Discovery classification rules (mirrors Vesana's profiles.match_rules).
+    # Served to instances so community-first discovery can suggest this profile.
+    match_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     latest_version_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey(
