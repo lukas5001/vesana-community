@@ -58,12 +58,15 @@ def test_author_display_uses_display_name_when_present():
     assert author_display("Alice", "uuid-1234abcd") == "Alice"
 
 
-def test_author_display_falls_back_to_instanz_prefix():
-    assert author_display(None, "abcd1234efgh") == "instanz-abcd1234"
+def test_author_display_falls_back_to_handle():
+    assert author_display(None, "abcd1234efgh") == "@abcd1234"
 
 
 def test_author_display_blank_name_falls_back():
-    assert author_display("   ", "abcd1234efgh") == "instanz-abcd1234"
+    # Auto/blank names map to a clean @handle — never the ugly "instanz-…".
+    assert author_display("   ", "abcd1234efgh") == "@abcd1234"
+    assert author_display("instanz-abcd1234", "abcd1234efgh") == "@abcd1234"
+    assert author_display("Real Name", "abcd1234efgh") == "Real Name"
 
 
 # --- DB helpers -------------------------------------------------------------

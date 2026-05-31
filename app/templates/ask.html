@@ -1,45 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}Ask a question &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('qa.ask') }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
-<h1>Ask the community</h1>
-<p class="lede">Ask about monitoring profiles, agents, collectors or setup.</p>
+<h1>{{ t('qa.ask_title') }}</h1>
+<p class="lede">{{ t('qa.ask_lede') }}</p>
 
 {% if not current_instance %}
-<div class="card">
-  <p>You need to be signed in to ask. Open the Community Hub from your Vesana
-  instance (avatar menu → <strong>Community Hub</strong>) and you will be signed
-  in automatically.</p>
-</div>
+<div class="card"><p>{{ t('common.signin_hint') }}</p></div>
 {% else %}
 
-{% if error %}
-<div class="form-error">{{ error }}</div>
-{% endif %}
+{% if error %}<div class="form-error">{{ error }}</div>{% endif %}
 
 <form class="card ask-form" method="post" action="/questions/ask">
   <label class="field">
-    <span class="field__label">Title</span>
+    <span class="field__label">{{ t('qa.f_title') }}</span>
     <input class="field__input" type="text" name="title_text" value="{{ title_text or '' }}"
-           placeholder="e.g. How do I monitor disk usage on a Synology NAS?" required />
+           placeholder="{{ t('qa.f_title_ph') }}" required />
   </label>
-
   <label class="field">
-    <span class="field__label">Details</span>
-    <textarea class="field__input" name="body_md" rows="8"
-              placeholder="Describe what you are trying to do and what you have tried.">{{ body_md or '' }}</textarea>
+    <span class="field__label">{{ t('qa.f_body') }}</span>
+    <textarea class="field__input" name="body_md" rows="8" placeholder="{{ t('qa.f_body_ph') }}">{{ body_md or '' }}</textarea>
   </label>
-
   <label class="field">
-    <span class="field__label">Tags</span>
-    <input class="field__input" type="text" name="tags" value="{{ tags or '' }}"
-           placeholder="snmp, synology, disk (comma-separated)" />
-    <span class="field__hint">Up to 6 tags, comma-separated.</span>
+    <span class="field__label">{{ t('qa.f_tags') }}</span>
+    <input class="field__input" type="text" name="tags" value="{{ tags or '' }}" placeholder="{{ t('qa.f_tags_ph') }}" />
+    <span class="field__hint">{{ t('qa.f_tags_hint') }}</span>
   </label>
-
   <div class="form-actions">
-    <button class="btn" type="submit">Post question</button>
+    <button class="btn" type="submit">{{ t('qa.post') }}</button>
   </div>
 </form>
 {% endif %}

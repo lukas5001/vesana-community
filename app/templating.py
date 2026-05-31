@@ -15,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.requests import Request
 
+from app.i18n import DEFAULT_LANG, LANGUAGES, normalize_lang, translate
+from app.identity import is_real_name, public_name
 from app.version import VERSION
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -38,12 +40,30 @@ def _global_context(request: Request) -> dict:
         # Short, stable suffix for disambiguation when two users pick the same
         # name (think Discord's #1234). Derived from the instance uuid.
         suffix = uuid.replace("-", "")[:4]
+        raw = sess.get("display_name")
         current_instance = {
             "uuid": uuid,
-            "name": sess.get("display_name") or uuid,
+            "name": public_name(raw, uuid),
             "suffix": suffix,
+            "is_real": is_real_name(raw),
         }
-    return {"version": VERSION, "current_instance": current_instance}
+
+    lang = DEFAULT_LANG
+    try:
+        lang = normalize_lang(request.cookies.get("lang"))
+    except (AttributeError, KeyError):
+        pass
+
+    def t(key: str, **kwargs) -> str:
+        return translate(lang, key, **kwargs)
+
+    return {
+        "version": VERSION,
+        "current_instance": current_instance,
+        "lang": lang,
+        "languages": LANGUAGES,
+        "t": t,
+    }
 
 
 templates = Jinja2Templates(

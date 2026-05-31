@@ -14,16 +14,19 @@
           <span class="brand__name">Vesana Community Hub</span>
         </a>
         <nav class="site-nav">
-          <a class="site-nav__link" href="/">Profiles</a>
-          <a class="site-nav__link" href="/questions">Q&amp;A</a>
-          {% if current_instance %}<a class="site-nav__link" href="/upload">Upload</a>{% endif %}
+          <a class="site-nav__link" href="/">{{ t('nav.profiles') }}</a>
+          <a class="site-nav__link" href="/questions">{{ t('nav.qa') }}</a>
+          {% if current_instance %}<a class="site-nav__link" href="/upload">{{ t('nav.upload') }}</a>{% endif %}
         </nav>
         <div class="site-account">
+          <span class="lang-switch">
+            {% for l in languages %}{% if l == lang %}<span class="lang-switch__active">{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}">{{ l|upper }}</a>{% endif %}{% endfor %}
+          </span>
           {% if current_instance %}
-            <a class="site-account__name" href="/account" title="Account settings">{{ current_instance.name }}<span class="site-account__suffix">#{{ current_instance.suffix }}</span></a>
-            <a class="site-account__action" href="/logout">Sign out</a>
+            <a class="site-account__name" href="/account" title="{{ t('nav.account') }}">{{ current_instance.name }}{% if current_instance.is_real %}<span class="site-account__suffix">#{{ current_instance.suffix }}</span>{% endif %}</a>
+            <a class="site-account__action" href="/logout">{{ t('nav.signout') }}</a>
           {% else %}
-            <span class="site-account__anon">Open from your Vesana instance to sign in</span>
+            <span class="site-account__anon">{{ t('nav.anon') }}</span>
           {% endif %}
         </div>
         {% block header_extra %}{% endblock %}

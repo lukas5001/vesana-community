@@ -1,67 +1,64 @@
 {% extends "base.html" %}
 
-{% block title %}Questions &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('qa.title') }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Community questions</h1>
-    <p class="lede">Ask and answer questions about Vesana monitoring profiles, agents and setups.</p>
+    <h1>{{ t('qa.title') }}</h1>
+    <p class="lede">{{ t('qa.lede') }}</p>
   </div>
   {% if current_instance %}
-  <a class="btn" href="/questions/ask">Ask a question</a>
+  <a class="btn" href="/questions/ask">{{ t('qa.ask') }}</a>
   {% endif %}
 </div>
 
 <form class="filters" method="get" action="/questions">
-    <div class="filters-row">
-        <input
-            class="search-box"
-            type="search"
-            name="search"
-            value="{{ search }}"
-            placeholder="Search questions, bodies, tags…"
-            aria-label="Search questions"
-        />
-        <select class="select" name="sort" aria-label="Sort by">
+    <div class="filters-row filters-row--search">
+        <div class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input class="search-box" type="search" name="search" value="{{ search }}"
+                   placeholder="{{ t('qa.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+        </div>
+        <select class="select" name="sort" aria-label="{{ t('common.sort') }}">
             {% for option in sort_options %}
-            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>
-                {{ option | capitalize }}
-            </option>
+            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>{{ option | capitalize }}</option>
             {% endfor %}
         </select>
-        <button class="btn" type="submit">Apply</button>
+        <noscript><button class="btn" type="submit">{{ t('common.search') }}</button></noscript>
     </div>
 
     <div class="filters-row chips">
-        <span class="chip-label">Filter</span>
+        <span class="chip-label">{{ t('qa.filter') }}</span>
         <a class="chip {% if not active_filter %}chip-active{% endif %}"
-           href="/questions?{% if search %}search={{ search }}&{% endif %}sort={{ active_sort }}">All</a>
+           href="/questions?{% if search %}search={{ search }}&{% endif %}sort={{ active_sort }}">{{ t('common.all') }}</a>
         {% for f in filter_options %}
         <a class="chip {% if active_filter == f %}chip-active{% endif %}"
            href="/questions?{% if search %}search={{ search }}&{% endif %}filter={{ f }}&sort={{ active_sort }}">{{ f }}</a>
         {% endfor %}
+        {% if active_filter or search %}<a class="chip-clear" href="/questions">{{ t('common.clear') }}</a>{% endif %}
     </div>
 </form>
 
-<p class="result-count">{{ total }} question{{ '' if total == 1 else 's' }} found</p>
+<div id="qa-results" data-results>
+<p class="result-count">{{ t('qa.count', count=total) }}</p>
 
 {% if questions %}
 <ul class="question-list">
     {% for q in questions %}
     <li class="question-row">
         <div class="question-row__stats">
-            <span class="vote-pill" title="Score">{{ q.vote_score }}</span>
+            <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ q.vote_score }}</span>
             <span class="answer-count{% if q.has_accepted %} answer-count--accepted{% endif %}"
-                  title="Answers">{{ q.answer_count }} ans</span>
+                  title="{{ t('qa.answers', count=q.answer_count) }}">{{ q.answer_count }} {{ t('detail.answers_short') }}</span>
         </div>
         <div class="question-row__body">
             <a class="question-title" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
             <div class="question-row__meta">
                 <span class="question-author">{{ q.author_display }}</span>
-                {% if q.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
-                {% if q.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
-                {% if q.has_accepted %}<span class="accepted-badge">✅ Accepted</span>{% endif %}
+                {% if q.is_vesana_team %}<span class="vesana-team-badge">{{ t('qa.team') }}</span>{% endif %}
+                {% if q.is_closed %}<span class="closed-badge">{{ t('qa.closed') }}</span>{% endif %}
+                {% if q.has_accepted %}<span class="accepted-badge">{{ t('qa.accepted') }}</span>{% endif %}
             </div>
             {% if q.tags %}
             <div class="card-tags">
@@ -73,6 +70,9 @@
     {% endfor %}
 </ul>
 {% else %}
-<p class="empty-state">No questions match your filters.</p>
+<p class="empty-state">{{ t('qa.empty') }}</p>
 {% endif %}
+</div>
+
+<script src="/static/js/community.js" defer></script>
 {% endblock %}

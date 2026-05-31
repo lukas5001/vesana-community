@@ -46,14 +46,13 @@ def test_trending_score_recency_boost_applies_within_window() -> None:
     assert fresh - stale == RECENCY_BOOST
 
 
-def test_check_preview_strips_sensitive_fields() -> None:
+def test_check_preview_masks_secret_values() -> None:
     bundle = {
         "checks": [
             {
                 "name": "DB ping",
                 "check_type": "postgres",
                 "config": {"password": "s3cret", "host": "10.0.0.5"},
-                "command": "psql -c 'select 1'",
             }
         ]
     }
@@ -62,42 +61,37 @@ def test_check_preview_strips_sensitive_fields() -> None:
     c = preview[0]
     assert c.name == "DB ping"
     assert c.check_type == "postgres"
-    # 🔒 Security: the preview may now surface SAFE config params, but secret
-    # values, the command body and the host/IP must never appear anywhere.
-    assert c.params == []  # every config key here is secret/host → all dropped
-    dumped = repr(c.model_dump())
-    assert "s3cret" not in dumped
-    assert "10.0.0.5" not in dumped
-    assert "psql" not in dumped
+    labels = {s.key: s.value for s in c.settings}
+    # 🔒 Security: the secret VALUE must never appear; the Password setting is
+    # listed but masked. Non-secret settings (Host) are shown.
+    assert "s3cret" not in repr(c.model_dump())
+    assert labels.get("Password") == "•••"
+    assert labels.get("Host") == "10.0.0.5"
 
 
-def test_check_preview_surfaces_safe_fields() -> None:
+def test_check_preview_surfaces_settings() -> None:
     bundle = {
         "checks": [
             {
                 "name": "CPU load",
                 "check_type": "snmp",
+                "oid": "1.3.6.1.4",  # top-level field
+                "interval_seconds": 60,
                 "description": "CPU via SNMP",
-                "threshold_warn": 80,
-                "threshold_crit": 95,
                 "config": {
-                    "oid": "1.3.6.1.4",
-                    "interval_seconds": 60,
-                    "snmp_community": "public",  # secret → dropped
-                    "host": "10.0.0.9",  # network target → dropped
+                    "port": 161,
+                    "snmp_community": "public",  # secret → masked, still listed
                 },
             }
         ]
     }
     c = check_preview_from_bundle(bundle)[0]
-    assert c.interval_seconds == 60
-    assert c.threshold_warn == "80"
-    assert c.threshold_crit == "95"
     assert c.description == "CPU via SNMP"
-    keys = {p.key for p in c.params}
-    assert "oid" in keys  # safe param surfaces
-    assert "snmp_community" not in keys  # secret dropped
-    assert "host" not in keys  # network target dropped
+    labels = {s.key: s.value for s in c.settings}
+    assert labels.get("OID") == "1.3.6.1.4"  # top-level setting surfaces
+    assert labels.get("Interval Seconds") == "60"
+    assert labels.get("Port") == "161"  # config setting surfaces
+    assert labels.get("SNMP Community") == "•••"  # secret masked but listed
 
 
 def test_check_preview_handles_type_alias_and_bad_data() -> None:

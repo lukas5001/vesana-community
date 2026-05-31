@@ -23,6 +23,25 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+
+  /* Aliases — the admin templates were authored against these names. Mapping
+     them onto the real tokens makes the (previously no-op) admin styling work. */
+  --surface: var(--bg-secondary);
+  --bg-elev: var(--bg-tertiary);
+  --border: var(--border-default);
+  --border-strong: #3a4252;
+  --text: var(--text-primary);
+  --text-dim: var(--text-secondary);
+  --text-muted: var(--text-tertiary);
+  --ok: #3fb950;
+  --warn: #d29922;
+  --danger: #e5484d;
+  --max-width: 920px;
+  --gap: 1rem;
+  --gap-sm: 0.5rem;
+  --gap-lg: 1.5rem;
+  --space: 1rem;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 *,
@@ -127,6 +146,27 @@ body {
   color: var(--text-tertiary);
   font-size: 0.8rem;
   margin-left: 0.15rem;
+}
+
+.lang-switch {
+  display: inline-flex;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+.lang-switch a {
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.lang-switch a:hover {
+  color: var(--text-primary);
+}
+
+.lang-switch__active {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .site-account__action {
@@ -479,6 +519,18 @@ a {
   color: var(--text-primary);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, var(--bg-tertiary));
+}
+
+.chip-clear {
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  margin-left: 0.4rem;
+  align-self: center;
+}
+
+.chip-clear:hover {
+  color: var(--accent);
 }
 
 .result-count {

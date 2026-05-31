@@ -1,27 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Admin sign-in &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('adminlogin.title') }} &middot; Vesana Community Hub{% endblock %}
 
 {% block content %}
 <div class="auth-card">
-  <h1>Admin sign-in</h1>
-  <p class="lede">Moderation &amp; review for community.vesana.org.</p>
+  <h1>{{ t('adminlogin.title') }}</h1>
+  <p class="lede">{{ t('adminlogin.lede') }}</p>
 
-  {% if error %}
-  <div class="form-error">{{ error }}</div>
-  {% endif %}
+  {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
 
   <form class="ask-form" method="post" action="/admin/login">
     <label class="field">
-      <span class="field__label">Username</span>
+      <span class="field__label">{{ t('adminlogin.user') }}</span>
       <input class="field__input" type="text" name="username" autocomplete="username" autofocus required />
     </label>
     <label class="field">
-      <span class="field__label">Password</span>
+      <span class="field__label">{{ t('adminlogin.pass') }}</span>
       <input class="field__input" type="password" name="password" autocomplete="current-password" required />
     </label>
     <div class="form-actions">
-      <button class="btn" type="submit">Sign in</button>
+      <button class="btn" type="submit">{{ t('adminlogin.btn') }}</button>
     </div>
   </form>
 </div>
