@@ -108,7 +108,7 @@ def admin_profiles(
     admin: AdminUser,
     db: DbDep,
 ) -> HTMLResponse:
-    profiles = admin_service.list_promotable(db)
+    profiles = admin_service.list_all_profiles(db)
     context = _base_context("profiles")
     context["profiles"] = profiles
     return templates.TemplateResponse(request, "admin/profiles.html", context)
@@ -176,5 +176,28 @@ def admin_profile_promote(
     db: DbDep,
 ) -> RedirectResponse:
     admin_service.promote_to_official(db, profile_id)
+    db.commit()
+    return _redirect("/admin/profiles")
+
+
+@router.post("/admin/profiles/{profile_id}/tier")
+def admin_profile_set_tier(
+    profile_id: str,
+    admin: AdminUser,
+    db: DbDep,
+    tier: Annotated[str, Form()],
+) -> RedirectResponse:
+    admin_service.set_tier(db, profile_id, tier)
+    db.commit()
+    return _redirect("/admin/profiles")
+
+
+@router.post("/admin/profiles/{profile_id}/delete")
+def admin_profile_delete(
+    profile_id: str,
+    admin: AdminUser,
+    db: DbDep,
+) -> RedirectResponse:
+    admin_service.delete_profile(db, profile_id)
     db.commit()
     return _redirect("/admin/profiles")

@@ -52,6 +52,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Profile detail
         "detail.by": "von",
         "detail.in_review": "In Prüfung",
+        "detail.download": "Als JSON herunterladen",
+        "detail.download_hint": "Lade das Profil-Bundle herunter und importiere es in deiner Vesana-Instanz (oder pick dir einzelne Checks heraus).",
         "detail.uploaded_ok": "Hochgeladen! Dein Profil ist in der Prüf-Warteschlange und wird nach Freigabe öffentlich.",
         "detail.description": "Beschreibung",
         "detail.no_description": "Keine Beschreibung angegeben.",
@@ -167,6 +169,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "browse.stat_score": "score",
         "detail.by": "by",
         "detail.in_review": "In review",
+        "detail.download": "Download as JSON",
+        "detail.download_hint": "Download the profile bundle and import it into your Vesana instance (or pick individual checks out of it).",
         "detail.uploaded_ok": "Uploaded! Your profile is in the review queue and becomes public once approved.",
         "detail.description": "Description",
         "detail.no_description": "No description provided.",

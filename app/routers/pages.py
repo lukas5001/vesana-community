@@ -17,7 +17,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -166,6 +166,34 @@ def detail_page(
         "related_questions": related_questions,
     }
     return templates.TemplateResponse(request, "detail.html", context)
+
+
+@router.get("/p/{profile_id}/download")
+def download_profile(profile_id: str, db: DbDep) -> Response:
+    """Download the profile's current version bundle as a .json file.
+
+    Lets a user grab a profile (or pick checks out of it) and import it into
+    their own Vesana instance. Public — the bundle is already public content.
+    """
+    import re as _re
+
+    profile = get_profile(db, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    current = profile.current_version
+    if current is None or current.bundle_json is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No downloadable bundle")
+
+    profile.download_count = (profile.download_count or 0) + 1
+    db.commit()
+
+    slug = _re.sub(r"[^A-Za-z0-9._-]+", "-", profile.name).strip("-") or "profile"
+    filename = f"{slug}-{current.version_tag or 'v1'}.json"
+    return Response(
+        content=json.dumps(current.bundle_json, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _question_card(db: Session, question: Question) -> dict:

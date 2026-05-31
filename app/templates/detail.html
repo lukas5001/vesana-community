@@ -44,6 +44,11 @@
     {% endif %}
 </div>
 
+<div class="detail-actions">
+    <a class="btn" href="/p/{{ profile.id }}/download">⤓ {{ t('detail.download') }}</a>
+    <span class="detail-actions__hint">{{ t('detail.download_hint') }}</span>
+</div>
+
 <section class="detail-section">
     <h2>{{ t('detail.description') }}</h2>
     <div class="markdown-body">
