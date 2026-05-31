@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # --- Misc ---------------------------------------------------------------
     COMMUNITY_BASE_URL: str = "http://localhost:8080"
 
+    # Set the ``Secure`` flag on the session cookie (cookie only sent over
+    # HTTPS). MUST be true in any TLS-terminated deployment; stays false for
+    # local HTTP dev. Driven by env so no code change is needed per environment.
+    SESSION_COOKIE_SECURE: bool = False
+
     @model_validator(mode="after")
     def _resolve_portal_public_key(self) -> Settings:
         """Materialise PORTAL_PUBLIC_KEY from a PEM file if a path was given.
