@@ -64,7 +64,12 @@ class CommunityProfile(Base):
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     # Discovery classification rules (mirrors Vesana's profiles.match_rules).
     # Served to instances so community-first discovery can suggest this profile.
-    match_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # ``none_as_null=True`` so a Python None becomes a real SQL NULL — without it
+    # SQLAlchemy stores the JSON ``'null'`` literal, which is NOT SQL NULL and
+    # leaks empty entries into the /match-rules classifier feed.
+    match_rules: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     latest_version_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey(

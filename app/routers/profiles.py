@@ -128,12 +128,17 @@ def profile_match_rules(db: DbDep) -> list[dict[str, Any]]:
             CommunityProfile.match_rules,
         ).where(
             CommunityProfile.is_removed.is_(False),
+            CommunityProfile.review_status == "approved",
             CommunityProfile.match_rules.isnot(None),
         )
     ).all()
+    # Defensive: skip rows whose match_rules is an empty/JSON-null value (these
+    # deserialize to a falsy Python value) so the classifier never receives a
+    # profile it cannot match against.
     return [
         {"community_id": r.id, "name": r.name, "tier": r.tier, "match_rules": r.match_rules}
         for r in rows
+        if r.match_rules
     ]
 
 
