@@ -52,6 +52,7 @@ def _to_summary(profile: CommunityProfile) -> ProfileSummary:
         requires_snmp=profile.requires_snmp,
         vesana_min_version=profile.vesana_min_version,
         latest_version_tag=latest_version_tag(profile),
+        latest_version_id=profile.latest_version_id,
         updated_at=profile.updated_at,
     )
 
@@ -110,6 +111,36 @@ def list_profiles_endpoint(
         items=[_to_summary(p) for p in profiles],
         total=total,
     )
+
+
+@router.get("/match-rules")
+def profile_match_rules(db: DbDep) -> list[dict[str, Any]]:
+    """Discovery match_rules of all visible profiles (community-first classifier).
+
+    A Vesana instance fetches this to classify discovered devices against the
+    community catalog and suggest a profile to import. Registered BEFORE the
+    ``/{profile_id}`` route so "match-rules" is not read as an id.
+    """
+    rows = db.execute(
+        select(
+            CommunityProfile.id,
+            CommunityProfile.name,
+            CommunityProfile.tier,
+            CommunityProfile.match_rules,
+        ).where(
+            CommunityProfile.is_removed.is_(False),
+            CommunityProfile.review_status == "approved",
+            CommunityProfile.match_rules.isnot(None),
+        )
+    ).all()
+    # Defensive: skip rows whose match_rules is an empty/JSON-null value (these
+    # deserialize to a falsy Python value) so the classifier never receives a
+    # profile it cannot match against.
+    return [
+        {"community_id": r.id, "name": r.name, "tier": r.tier, "match_rules": r.match_rules}
+        for r in rows
+        if r.match_rules
+    ]
 
 
 @router.get("/{profile_id}", response_model=ProfileDetail)

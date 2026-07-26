@@ -72,6 +72,9 @@ class ProfileSummary(BaseModel):
     requires_snmp: bool = False
     vesana_min_version: str | None = None
     latest_version_tag: str | None = None
+    # Id of the current version — a consumer (e.g. the Vesana import proxy) needs
+    # it to fetch /versions/{id}/bundle; the tag alone is not addressable.
+    latest_version_id: str | None = None
     updated_at: datetime
 
 
