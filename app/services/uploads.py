@@ -152,8 +152,10 @@ def scan_scripts(bundle: dict[str, Any]) -> tuple[bool, list[dict[str, str]]]:
 
 def _derive_connection_requirements(bundle: dict[str, Any]) -> dict[str, bool]:
     """Ehrlicher Verbindungsbedarf aus den BUNDLE-CHECKS (nicht aus den mager
-    gepflegten profile-Metadaten): snmp* → SNMP, ssh* → SSH, http_json → API-
-    Token. Speist die Bedarfs-Pills im Host-Assistenten der Instanzen."""
+    gepflegten profile-Metadaten): snmp* → SNMP, ssh* → SSH, http_json ODER ein
+    ``{api_token}``-Platzhalter in der check_config (z. B. plugin_local-Checks
+    wie Proxmox VE (API)) → API-Token. Speist die Bedarfs-Pills im
+    Host-Assistenten der Instanzen."""
     snmp = ssh = api_token = False
     checks = bundle.get("checks")
     if isinstance(checks, list):
@@ -165,7 +167,9 @@ def _derive_connection_requirements(bundle: dict[str, Any]) -> dict[str, bool]:
                 snmp = True
             if check_type.startswith("ssh"):
                 ssh = True
-            if check_type == "http_json":
+            if check_type == "http_json" or "{api_token}" in json.dumps(
+                check.get("check_config") or {}
+            ):
                 api_token = True
     return {"snmp": snmp, "ssh": ssh, "api_token": api_token}
 
