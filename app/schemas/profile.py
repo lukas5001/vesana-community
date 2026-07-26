@@ -70,6 +70,8 @@ class ProfileSummary(BaseModel):
     requires_agent: bool = False
     requires_collector: bool = False
     requires_snmp: bool = False
+    requires_ssh: bool = False
+    requires_api_token: bool = False
     vesana_min_version: str | None = None
     latest_version_tag: str | None = None
     # Id of the current version — a consumer (e.g. the Vesana import proxy) needs
