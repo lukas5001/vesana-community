@@ -150,10 +150,31 @@ def scan_scripts(bundle: dict[str, Any]) -> tuple[bool, list[dict[str, str]]]:
     return has_scripts, findings
 
 
+def _derive_connection_requirements(bundle: dict[str, Any]) -> dict[str, bool]:
+    """Ehrlicher Verbindungsbedarf aus den BUNDLE-CHECKS (nicht aus den mager
+    gepflegten profile-Metadaten): snmp* → SNMP, ssh* → SSH, http_json → API-
+    Token. Speist die Bedarfs-Pills im Host-Assistenten der Instanzen."""
+    snmp = ssh = api_token = False
+    checks = bundle.get("checks")
+    if isinstance(checks, list):
+        for check in checks:
+            if not isinstance(check, dict):
+                continue
+            check_type = str(check.get("check_type") or "")
+            if check_type.startswith("snmp"):
+                snmp = True
+            if check_type.startswith("ssh"):
+                ssh = True
+            if check_type == "http_json":
+                api_token = True
+    return {"snmp": snmp, "ssh": ssh, "api_token": api_token}
+
+
 def _profile_fields_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     """Extract the persisted CommunityProfile metadata from a bundle.profile."""
     profile = bundle.get("profile", {})
     tags = profile.get("tags")
+    derived = _derive_connection_requirements(bundle)
     return {
         "name": profile["name"],
         "description_md": profile.get("description_md") or profile.get("description"),
@@ -163,7 +184,10 @@ def _profile_fields_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "vesana_min_version": profile.get("vesana_min_version"),
         "requires_agent": bool(profile.get("requires_agent", False)),
         "requires_collector": bool(profile.get("requires_collector", False)),
-        "requires_snmp": bool(profile.get("requires_snmp", False)),
+        # Metadaten dürfen den Bedarf nur ERGÄNZEN — die Checks sind die Wahrheit.
+        "requires_snmp": bool(profile.get("requires_snmp", False)) or derived["snmp"],
+        "requires_ssh": derived["ssh"],
+        "requires_api_token": derived["api_token"],
         "tags": list(tags) if isinstance(tags, list) else None,
     }
 

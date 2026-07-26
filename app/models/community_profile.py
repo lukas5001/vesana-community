@@ -53,6 +53,15 @@ class CommunityProfile(Base):
     requires_snmp: Mapped[bool] = mapped_column(
         Boolean, server_default="false", nullable=False, default=False
     )
+    # Verbindungsbedarf — beim Upload aus den BUNDLE-CHECKS abgeleitet
+    # (check_type ssh* / http_json), nicht aus den mager gepflegten
+    # Bundle-Metadaten. Speist die Bedarfs-Pills im Host-Assistenten.
+    requires_ssh: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False, default=False
+    )
+    requires_api_token: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False, default=False
+    )
     # NULL for official/beta profiles; the instance uuid (no FK, re-seed safe).
     uploader_instance_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     download_count: Mapped[int] = mapped_column(
