@@ -1,7 +1,7 @@
 """requires_ssh / requires_api_token — ehrlicher Verbindungsbedarf pro Profil
 
-Revision ID: 0009_profile_connection_requirements
-Revises: 0008_profile_match_rules
+Revision ID: 0010_profile_connection_requirements
+Revises: 0009_icon_library
 Create Date: 2026-07-26
 
 Der Host-Assistent auf den Vesana-Instanzen zeigt pro Profilkarte, welche
@@ -20,8 +20,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0009_profile_connection_requirements"
-down_revision: str | None = "0008_profile_match_rules"
+revision: str = "0010_profile_connection_requirements"
+down_revision: str | None = "0009_icon_library"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
