@@ -1,6 +1,6 @@
 """requires_ssh / requires_api_token — ehrlicher Verbindungsbedarf pro Profil
 
-Revision ID: 0010_profile_connection_requirements
+Revision ID: 0010_profile_conn_flags
 Revises: 0009_icon_library
 Create Date: 2026-07-26
 
@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0010_profile_connection_requirements"
+revision: str = "0010_profile_conn_flags"
 down_revision: str | None = "0009_icon_library"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
