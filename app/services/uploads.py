@@ -33,6 +33,7 @@ from app.models.instance import Instance
 from app.schemas.profile import VESANA_TEAM_UPLOADER
 from app.schemas.upload import ReviewItem
 from app.services import notifications
+from app.telemetry_checks import strip_telemetry_checks
 
 # Maximum serialized bundle size. Bundles reference scripts by id, so they stay
 # small; a generous cap stops abuse without rejecting legitimate large profiles.
@@ -85,6 +86,17 @@ def validate_bundle(bundle: Any) -> dict[str, Any]:
     checks = bundle.get("checks")
     if not isinstance(checks, list):
         raise _bad_request("bundle.checks must be a list")
+
+    # Agent telemetry never gets STORED again. It runs invisibly on every agent
+    # host, so a hub bundle listing it only ever produced a wrong check count and
+    # six checks nobody can act on. Older Vesana exports still ship them, hence
+    # the filter here rather than a validation error — an upload must not fail
+    # because the uploading instance is a version behind. A bundle that carries
+    # none passes through untouched (same object), so the size check below and
+    # every caller keep seeing exactly what was uploaded.
+    visible_checks = strip_telemetry_checks(checks)
+    if len(visible_checks) != len(checks):
+        bundle = {**bundle, "checks": visible_checks}
 
     try:
         serialized = json.dumps(bundle)

@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.telemetry_checks import strip_telemetry_checks
+
 # Tier of a profile. ``official`` / ``beta`` are curated by the Vesana team;
 # ``community`` profiles are uploaded by self-hosters.
 ProfileTier = str
@@ -212,6 +214,12 @@ def check_preview_from_bundle(bundle: dict[str, Any] | None) -> list[CheckPrevie
     plus the ``config`` dict, humanised), with secret VALUES masked. An untrusted
     uploaded bundle can never leak credentials. Malformed/missing data degrades
     gracefully to an empty list.
+
+    Agent telemetry checks are dropped: they run invisibly in the background in
+    every Vesana instance and must never be listed as checks — not on the website
+    and not in the API preview the Vesana app renders. Already-stored bundles
+    still contain them, so filtering happens on DISPLAY too, not only on ingest
+    (see ``app/telemetry_checks.py``).
     """
     if not isinstance(bundle, dict):
         return []
@@ -220,7 +228,7 @@ def check_preview_from_bundle(bundle: dict[str, Any] | None) -> list[CheckPrevie
         return []
 
     preview: list[CheckPreview] = []
-    for check in checks:
+    for check in strip_telemetry_checks(checks):
         if not isinstance(check, dict):
             continue
         name = check.get("name")

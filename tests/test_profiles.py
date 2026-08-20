@@ -10,6 +10,8 @@ from app.schemas import (
     check_preview_from_bundle,
 )
 from app.services.ranking import RECENCY_BOOST, trending_score
+from app.services.uploads import validate_bundle
+from app.telemetry_checks import AGENT_TELEMETRY_CHECK_TYPES
 
 from .conftest import requires_db
 
@@ -352,3 +354,47 @@ def test_seed_is_idempotent(db_app_client) -> None:
     assert body["total"] == first
     names = {item["name"] for item in body["items"]}
     assert "UniFi Switch" in names
+
+
+# --------------------------------------------------------------------------- #
+# Agent telemetry is never a listed check
+# --------------------------------------------------------------------------- #
+def test_check_preview_drops_agent_telemetry_checks() -> None:
+    """The six background telemetry checks must not appear as checks.
+
+    Real-world trigger: "Windows Server Base Checks" advertised 17 checks, six of
+    which were telemetry the user can neither pick nor act on. 28 current hub
+    bundles still carry them, so the preview filters on DISPLAY.
+    """
+    bundle = {
+        "checks": [
+            {"name": "CPU", "check_type": "agent_cpu"},
+            {"name": "Agent Overview", "check_type": "agent_overview"},
+            {"name": "Agent Hardware", "check_type": "agent_hardware", "is_telemetry": True},
+            {"name": "Agent Inventar", "type": "agent_inventory"},  # legacy `type` key
+            {"name": "Ping", "check_type": "ping"},
+        ]
+    }
+    preview = check_preview_from_bundle(bundle)
+    assert [c.name for c in preview] == ["CPU", "Ping"]
+
+
+def test_check_preview_drops_every_canonical_telemetry_type() -> None:
+    bundle = {"checks": [{"name": t, "check_type": t} for t in AGENT_TELEMETRY_CHECK_TYPES]}
+    assert check_preview_from_bundle(bundle) == []
+
+
+def test_upload_validation_strips_telemetry_from_the_stored_bundle() -> None:
+    """Ingest side: a bundle that still carries telemetry is stored without it."""
+    bundle = {
+        "schema_version": 1,
+        "profile": {"name": "Windows Server Base Checks", "vendor": "microsoft"},
+        "checks": [
+            {"name": "CPU", "check_type": "agent_cpu"},
+            {"name": "Agent Overview", "check_type": "agent_overview", "is_telemetry": True},
+        ],
+    }
+    stored = validate_bundle(bundle)
+    assert [c["name"] for c in stored["checks"]] == ["CPU"]
+    # The caller's dict is not mutated — validation returns a new bundle.
+    assert len(bundle["checks"]) == 2
