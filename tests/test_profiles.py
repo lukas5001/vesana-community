@@ -304,7 +304,10 @@ def test_detail_returns_description_and_check_preview(db_app_client) -> None:
     body = r.json()
     assert body["description_md"] == "Description for Detail Me"
     assert body["uploader"] == "Vesana Team"
-    assert body["check_preview"] == [{"name": "HTTP up", "check_type": "http"}]
+    # Die Vorschau trägt seit v0.9.0 ALLE Einstellungen des Checks mit,
+    # Secret-Werte maskiert — der Test stand noch auf der alten, nackten Form.
+    assert [(c["name"], c["check_type"]) for c in body["check_preview"]] == [("HTTP up", "http")]
+    assert body["check_preview"][0]["settings"] == [{"key": "Token", "value": "\u2022\u2022\u2022"}]
 
 
 @requires_db

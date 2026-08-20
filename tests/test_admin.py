@@ -7,8 +7,9 @@ invariant: EVERY admin endpoint returns 401 without admin credentials.
 
 DB tests are skipped unless ``DATABASE_URL_TEST`` points at a reachable Postgres
 (see conftest). Admin auth for the JSON API is the ``X-Admin-Authorization``
-Basic header built from the conftest creds (admin / test-admin-pass); the HTML
-pages use plain HTTP Basic.
+Basic header built from the conftest creds (admin / test-admin-pass); die HTML-
+Seiten hängen seit v0.9.0 an einer Session-Anmeldung und leiten ohne sie auf
+``/admin/login`` um.
 """
 
 from __future__ import annotations
@@ -23,7 +24,6 @@ from tests.conftest import requires_db
 # Built from the conftest COMMUNITY_ADMIN_USER / COMMUNITY_ADMIN_PASSWORD.
 _BASIC = "Basic " + base64.b64encode(b"admin:test-admin-pass").decode()
 ADMIN_HEADER = {"X-Admin-Authorization": _BASIC}
-PAGE_AUTH = ("admin", "test-admin-pass")
 
 LOGIN_ISSUER = "vesana-licence-portal"
 
@@ -303,8 +303,14 @@ def test_admin_api_requires_admin_header(db_app_client, method, path, json_body)
     "path",
     ["/admin", "/admin/review", "/admin/moderation", "/admin/instances", "/admin/profiles"],
 )
-def test_admin_pages_require_basic_auth(db_app_client, path):
+def test_admin_pages_require_a_session_login(db_app_client, path):
+    """Admin-SEITEN hängen seit v0.9.0 an einer Session, nicht mehr an HTTP-Basic.
+
+    Der Test stand noch auf 401 (Basic-Challenge) und war seither rot: ohne
+    Session antwortet die Seite mit 303 auf `/admin/login`. Wichtig ist die
+    Weiterleitung selbst — ein 200 mit Admin-Inhalt wäre das Loch.
+    """
     c = db_app_client
-    assert c.get(path).status_code == 401
-    ok = c.get(path, auth=PAGE_AUTH)
-    assert ok.status_code == 200
+    resp = c.get(path, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"].startswith("/admin/login")
