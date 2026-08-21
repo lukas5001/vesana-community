@@ -374,12 +374,15 @@ def test_check_preview_drops_agent_telemetry_checks() -> None:
             {"name": "CPU", "check_type": "agent_cpu"},
             {"name": "Agent Overview", "check_type": "agent_overview"},
             {"name": "Agent Hardware", "check_type": "agent_hardware", "is_telemetry": True},
+            # Echter Check, vom Autor faelschlich als Telemetrie markiert
+            # („Proxmox VE (API)" v1 tut das) — MUSS sichtbar bleiben.
+            {"name": "Uptime (Tage)", "check_type": "http_json", "is_telemetry": True},
             {"name": "Agent Inventar", "type": "agent_inventory"},  # legacy `type` key
             {"name": "Ping", "check_type": "ping"},
         ]
     }
     preview = check_preview_from_bundle(bundle)
-    assert [c.name for c in preview] == ["CPU", "Ping"]
+    assert [c.name for c in preview] == ["CPU", "Uptime (Tage)", "Ping"]
 
 
 def test_check_preview_drops_every_canonical_telemetry_type() -> None:

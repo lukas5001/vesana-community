@@ -40,14 +40,20 @@ AGENT_TELEMETRY_CHECK_TYPES: frozenset[str] = frozenset(
 def is_telemetry_check(check: Any) -> bool:
     """True when a bundle check is one of the invisible agent telemetry checks.
 
-    Two markers, because both forms occur in real bundles: the explicit
-    ``is_telemetry`` flag and the bare check type (older exports carry no flag).
+    🔒 The ``check_type`` decides ALONE — an ``is_telemetry`` flag is NOT enough.
+    A bundle is foreign input: the flag is just a field someone set, while the
+    six telemetry types are built into the Go agent and created server-side. A
+    check of any other type is never telemetry, whatever the flag claims.
+
+    Proven on our own data: "Proxmox VE (API)" v1 carries a real ``http_json``
+    check "Uptime (Tage)" flagged ``is_telemetry: true`` (an authoring slip —
+    "informational" was meant). Trusting the flag hid a real check. The rule is
+    fail-safe: when in doubt, KEEP.
+
     The type key is ``check_type``; ``type`` is accepted as the legacy alias.
     """
     if not isinstance(check, dict):
         return False
-    if check.get("is_telemetry"):
-        return True
     check_type = check.get("check_type") or check.get("type")
     return isinstance(check_type, str) and check_type in AGENT_TELEMETRY_CHECK_TYPES
 
