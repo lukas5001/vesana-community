@@ -22,6 +22,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, defer
 
 from app.auth.deps import get_session_instance
+from app.auth.gate import require_visitor
 from app.db import get_db
 from app.identity import public_name
 from app.models.community_profile import CommunityProfile
@@ -43,7 +44,7 @@ from app.services.voting import cast_vote
 from app.templating import templates
 from app.version import VERSION
 
-router = APIRouter(tags=["pages"])
+router = APIRouter(tags=["pages"], dependencies=[Depends(require_visitor)])
 
 DbDep = Annotated[Session, Depends(get_db)]
 SessionInstance = Annotated[Instance | None, Depends(get_session_instance)]

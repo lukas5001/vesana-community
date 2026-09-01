@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('gate.title') }} · Vesana Community{% endblock %}
+
+{% block content %}
+<div class="gate">
+  <p class="eyebrow">{{ t('gate.eyebrow') }}</p>
+  <h1>{{ t('gate.title') }}</h1>
+  <p class="lede">{{ t('gate.text') }}</p>
+  <div class="sbox">
+    <h3>{{ t('gate.how') }}</h3>
+    <ol class="steps">
+      <li>{{ t('gate.step_1') }}</li>
+      <li>{{ t('gate.step_2') }}</li>
+      <li>{{ t('gate.step_3') }}</li>
+    </ol>
+  </div>
+  <p class="muted">{{ t('gate.hint') }} <a href="https://vesana.org">vesana.org</a> · <a href="https://docs.vesana.org">{{ t('nav.docs') }}</a></p>
+</div>
+{% endblock %}

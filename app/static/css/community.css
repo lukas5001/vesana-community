@@ -570,3 +570,9 @@ a.tag:hover{color:var(--brand-2);border-color:var(--brand-2)}
 .auth-card h1{font-size:1.4rem}
 .auth-card .lede{margin:0}
 .auth-card .ask-form{display:grid;gap:14px}
+
+/* ---- Tor (ohne Vesana-Sitzung) -------------------------------------------- */
+.gate{max-width:560px;margin:clamp(24px,8vh,80px) auto 0;display:grid;gap:16px}
+.gate h1{font-size:clamp(1.6rem,3vw,2.2rem)}
+.gate .lede{margin:0}
+.gate .sbox{margin-top:6px}

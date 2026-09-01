@@ -19,12 +19,12 @@
           <svg width="20" height="20"><use href="#i-mark"/></svg>VESANA <span>Community</span>
         </a>
         {% set path = request.url.path %}
-        <nav class="nav" aria-label="{{ t('nav.label') }}">
+        {% if current_instance %}<nav class="nav" aria-label="{{ t('nav.label') }}">
           <a href="/" {% if path == '/' or path.startswith('/browse') or path.startswith('/p/') %}aria-current="page"{% endif %}>{{ t('nav.profiles') }}</a>
           <a href="/questions" {% if path.startswith('/questions') %}aria-current="page"{% endif %}>{{ t('nav.qa') }}</a>
           <a href="/icons" {% if path.startswith('/icons') %}aria-current="page"{% endif %}>{{ t('nav.icons') }}</a>
-          {% if current_instance %}<a href="/upload" {% if path.startswith('/upload') %}aria-current="page"{% endif %}>{{ t('nav.upload') }}</a>{% endif %}
-        </nav>
+          <a href="/upload" {% if path.startswith('/upload') %}aria-current="page"{% endif %}>{{ t('nav.upload') }}</a>
+        </nav>{% endif %}
         <div class="hdr-r">
           <span class="lang">{% for l in languages %}{% if l == lang %}<span>{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}" hreflang="{{ l }}">{{ l|upper }}</a>{% endif %}{% if not loop.last %}·{% endif %}{% endfor %}</span>
           <button class="theme-btn" type="button" data-theme-toggle aria-label="{{ t('nav.theme') }}" title="{{ t('nav.theme') }}"><svg><use href="#i-moon"/></svg></button>

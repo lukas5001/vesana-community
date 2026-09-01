@@ -181,6 +181,9 @@ def test_downvote_reason_not_in_public_profile_view(db_app_client, make_login_jw
     detail = db_app_client.get(f"/api/v1/profiles/{profile_id}")
     assert detail.status_code == 200, detail.text
     assert "secret-private-reason" not in detail.text
+    # Die Seite sieht nur, wer eine Instanz-Sitzung hat — hier ein ANDERER Besucher.
+    token = make_login_jwt(sub="11111111-aaaa-0000-0000-000000000009", jti="v-8-web")
+    db_app_client.get("/auth", params={"token": token}, follow_redirects=False)
     page = db_app_client.get(f"/p/{profile_id}")
     assert page.status_code == 200
     assert "secret-private-reason" not in page.text

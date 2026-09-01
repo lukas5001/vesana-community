@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.auth.gate import VisitorGateRequired
 from app.config import get_settings
 from app.routers import (
     admin_api,
@@ -23,6 +25,7 @@ from app.routers import (
     qa,
     uploads,
 )
+from app.templating import templates
 from app.version import VERSION
 
 _BASE_DIR = Path(__file__).resolve().parent
@@ -65,6 +68,17 @@ def create_app() -> FastAPI:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
+
+    @app.exception_handler(VisitorGateRequired)
+    async def _visitor_gate(request: Request, exc: VisitorGateRequired):
+        """HTML-Seite ohne Instanz-Sitzung → Tor-Seite (403, nicht indexierbar)."""
+        response = templates.TemplateResponse(request, "gate.html", {}, status_code=403)
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+
+    @app.get("/robots.txt", include_in_schema=False)
+    def _robots() -> PlainTextResponse:
+        return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
     app.include_router(health.router)
     app.include_router(auth.router)

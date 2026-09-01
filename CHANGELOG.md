@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.1 — Besucher-Tor: Website nur mit Vesana-Sitzung
+
+- Alle HTML-Seiten (`/`, `/p/*`, `/questions*`, `/upload`, `/account`, `/icons`)
+  verlangen eine Instanz-Sitzung (SSO-Deep-Link aus der App). Ohne Sitzung:
+  Tor-Seite (403, `X-Robots-Tag: noindex`), zweisprachig, ohne Navigation.
+- Frei bleiben: Maschinen-API `/api/v1/*` (Instanzen holen Profile/Bundles/
+  Icons serverseitig, auch alte Versionen ohne Token), `/auth`, `/logout`,
+  `/lang/*`, `/health`, `/static/*`, Admin (eigene Anmeldung). `/robots.txt`
+  sperrt Crawler aus.
+- Umsetzung: Router-Dependency `app/auth/gate.py::require_visitor` auf dem
+  Seiten-Router + Exception-Handler in `main.py`. Tests: `tests/test_visitor_gate.py`.
+
 ## 0.10.0 — Register: Neubau der Oberfläche im Vesana-Design
 
 Komplett neue Oberfläche für community.vesana.org. Der Hub ist jetzt ein

@@ -390,6 +390,9 @@ def test_profile_linked_question_shows_on_profile_page(db_app_client, make_login
     ).json()
     assert question["profile_id"] == profile_id
 
+    # HTML-Seiten gibt es nur mit Instanz-Sitzung (Besucher-Tor) → per SSO anmelden.
+    token = make_login_jwt(sub="33330000-0000-0000-0000-000000000018", jti="q-16-web")
+    db_app_client.get("/auth", params={"token": token}, follow_redirects=False)
     page = db_app_client.get(f"/p/{profile_id}")
     assert page.status_code == 200
     assert "Question about this profile" in page.text
