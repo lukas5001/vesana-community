@@ -102,6 +102,31 @@ def test_qr_svg_is_inline_svg_without_scripts():
     assert svg.startswith("<svg") and "<script" not in svg and 'class="qr"' in svg
 
 
+def test_qr_svg_scales_via_viewbox_not_fixed_size():
+    """Feste width/height + CSS-Größe = abgeschnittener Code (Lukas: „scannen geht nicht")."""
+    svg = str(sec.qr_svg("otpauth://totp/x?secret=ABC"))
+    assert "viewBox=" in svg
+    assert 'width="' not in svg.split(">", 1)[0] and 'height="' not in svg.split(">", 1)[0]
+
+
+def test_qr_svg_rendered_at_css_size_is_decodable():
+    """Das SVG wird wie im Template auf 220 px gezwungen, gerastert und dekodiert."""
+    pytest.importorskip("zxingcpp")
+    cairosvg = pytest.importorskip("cairosvg")
+    from io import BytesIO
+
+    import zxingcpp
+    from PIL import Image
+
+    uri = sec.otpauth_uri("E525SN7EU7VVL7NW53WMEB2XXK7N57KK", "lukas", "Vesana Community Hub (x)")
+    svg = str(sec.qr_svg(uri))
+    png = cairosvg.svg2png(
+        bytestring=svg.encode(), output_width=220, output_height=220, background_color="#F5EDE0"
+    )
+    found = zxingcpp.read_barcodes(Image.open(BytesIO(png)).convert("RGB"))
+    assert found and found[0].text == uri
+
+
 def test_csrf_dependency_rejects_missing_and_wrong_token():
     from fastapi import HTTPException
     from starlette.requests import Request
