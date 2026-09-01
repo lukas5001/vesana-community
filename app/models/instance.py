@@ -41,6 +41,9 @@ class Instance(Base):
     )
 
     is_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Warum und seit wann gesperrt (Migration 0011) — vorher nur ein Bool.
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     @property
     def effective_name(self) -> str:

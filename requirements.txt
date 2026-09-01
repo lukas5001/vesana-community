@@ -10,6 +10,7 @@ cryptography
 jinja2
 python-multipart
 itsdangerous
+segno
 httpx
 pytest
 pytest-asyncio

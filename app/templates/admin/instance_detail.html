@@ -1,0 +1,83 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ public_name }} · {{ t('admin.nav.instances') }}{% endblock %}
+{% block crumbs %}<i>/</i><a href="/admin/instances">{{ t('admin.nav.instances') }}</a><i>/</i><b>{{ public_name }}</b>{% endblock %}
+
+{% block content %}
+{% set next_url = '/admin/instances/' ~ instance.uuid %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{% if instance.is_blocked %}<span class="badge badge--closed">blocked</span>{% else %}<span class="badge badge--ok">active</span>{% endif %}</p>
+    <h1>{{ public_name }}</h1>
+    <p class="lede">{{ t('admin.inst.sso_name') }}: <span class="mono">{{ instance.display_name }}</span>{% if instance.chosen_name %} · {{ t('admin.inst.chosen') }}: <b>{{ instance.chosen_name }}</b>{% endif %} · {{ t('admin.inst.joined') }} {{ instance.joined_at | dt }} · {{ t('admin.inst.seen') }} {{ instance.last_seen_at | ago(lang) }}</p>
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div>
+    <div class="kpis kpis--4">
+      <div class="kpi"><span class="kpi__l">{{ t('admin.inst.uploads') }}</span><span class="kpi__v">{{ profiles | length }}</span></div>
+      <div class="kpi"><span class="kpi__l">{{ t('detail.tab_comments') }}</span><span class="kpi__v">{{ comments | length }}</span></div>
+      <div class="kpi"><span class="kpi__l">{{ t('admin.nav.questions') }}</span><span class="kpi__v">{{ questions | length }} / {{ answers | length }}</span><span class="kpi__s">{{ t('admin.inst.q_a') }}</span></div>
+      <div class="kpi"><span class="kpi__l">{{ t('admin.inst.reports_votes') }}</span><span class="kpi__v">{{ reports_by }} / {{ votes }}</span></div>
+    </div>
+
+    <h2 class="ad-h2">{{ t('admin.inst.uploads') }}</h2>
+    {% if not profiles %}<p class="muted">{{ t('admin.inst.no_uploads') }}</p>{% else %}
+    <div class="reg-wrap"><table class="reg reg--admin">
+      <thead><tr><th>{{ t('admin.col.profile') }}</th><th>{{ t('reg.col_tier') }}</th><th>{{ t('admin.col.status') }}</th><th class="r">↓</th><th>{{ t('admin.col.updated') }}</th></tr></thead>
+      <tbody>{% for p in profiles %}<tr {% if p.is_removed %}class="row--removed"{% endif %}><td><a class="nm" href="/admin/profiles/{{ p.id }}">{{ p.name }}</a><div class="vd">{{ p.vendor or '—' }}</div></td><td><span class="tier tier-{{ p.tier }}">{{ p.tier }}</span></td><td>{% if p.is_removed %}<span class="badge badge--closed">{{ t('admin.prof.removed') }}</span>{% else %}<span class="badge badge--{{ p.review_status }}">{{ p.review_status }}</span>{% endif %}</td><td class="r num">{{ p.download_count }}</td><td class="mono">{{ p.updated_at | d }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+
+    <h2 class="ad-h2">{{ t('admin.inst.recent') }}</h2>
+    {% if not comments and not questions and not answers %}<p class="muted">{{ t('admin.inst.no_activity') }}</p>{% else %}
+    <ul class="alog alog--wide">
+      {% for c in comments %}<li><span class="alog__a">{{ t('admin.act.comment') }}</span><a class="alog__s" href="/admin/profiles/{{ c.profile_id }}?tab=comments">{{ c.body_md | truncate(140) }}</a><span class="alog__m">{{ c.created_at | dt }}{% if c.is_removed %} · <span class="badge badge--closed">{{ t('detail.removed') }}</span>{% endif %}</span></li>{% endfor %}
+      {% for qn in questions %}<li><span class="alog__a">{{ t('admin.act.question') }}</span><a class="alog__s" href="/admin/questions/{{ qn.id }}">{{ qn.title_text }}</a><span class="alog__m">{{ qn.created_at | dt }}</span></li>{% endfor %}
+      {% for a in answers %}<li><span class="alog__a">{{ t('admin.act.answer') }}</span><a class="alog__s" href="/admin/questions/{{ a.question_id }}">{{ a.body_md | truncate(140) }}</a><span class="alog__m">{{ a.created_at | dt }}</span></li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if history.items %}
+    <h2 class="ad-h2">{{ t('admin.prof.tab_history') }}</h2>
+    <ul class="alog alog--wide">
+      {% for h in history.items %}<li><span class="alog__a">{{ t('audit.' ~ h.action) }}</span><span class="alog__s">{{ h.summary or '' }}{% if h.details and h.details.reason %} — {{ h.details.reason }}{% endif %}</span><span class="alog__m">{{ h.admin_user }} · {{ h.created_at | dt }}</span></li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.inst.identity') }}</h3>
+      <dl class="kv">
+        <dt>UUID</dt><dd class="mono small" data-copy="{{ instance.uuid }}">{{ instance.uuid }}</dd>
+        <dt>{{ t('admin.inst.joined') }}</dt><dd class="mono">{{ instance.joined_at | dt }}</dd>
+        <dt>{{ t('admin.inst.seen') }}</dt><dd class="mono">{{ instance.last_seen_at | dt }}</dd>
+        {% if instance.is_blocked %}<dt>{{ t('admin.inst.blocked_since') }}</dt><dd class="mono">{{ instance.blocked_at | dt }}</dd>{% if instance.blocked_reason %}<dt>{{ t('admin.inst.reason') }}</dt><dd>{{ instance.blocked_reason }}</dd>{% endif %}{% endif %}
+      </dl>
+    </div>
+
+    {% if instance.chosen_name %}
+    <div class="panel">
+      <h3>{{ t('admin.inst.chosen') }}</h3>
+      <p class="muted">{{ t('admin.inst.reset_name_hint') }}</p>
+      <form method="post" action="/admin/instances/{{ instance.uuid }}/reset-name" data-confirm="{{ t('admin.inst.reset_name_confirm', name=instance.chosen_name) }}" data-confirm-ok="{{ t('admin.inst.reset_name') }}">{% include "admin/_csrf.html" %}<button class="btn btn--ghost btn--sm" type="submit"><svg><use href="#a-undo"/></svg>{{ t('admin.inst.reset_name') }}</button></form>
+    </div>
+    {% endif %}
+
+    <div class="panel {% if not instance.is_blocked %}panel--danger{% endif %}">
+      <h3>{{ t('admin.inst.access') }}</h3>
+      {% if instance.is_blocked %}
+      <form method="post" action="/admin/instances/{{ instance.uuid }}/block">{% include "admin/_csrf.html" %}<input type="hidden" name="blocked" value="false" /><button class="btn btn--ok btn--sm" type="submit"><svg><use href="#a-check"/></svg>{{ t('admin.inst.unblock') }}</button></form>
+      <p class="muted">{{ t('admin.inst.unblock_hint') }}</p>
+      {% else %}
+      <form method="post" action="/admin/instances/{{ instance.uuid }}/block" class="stack" data-confirm="{{ t('admin.inst.block_confirm', name=public_name) }}" data-confirm-ok="{{ t('admin.inst.block') }}">{% include "admin/_csrf.html" %}<input type="hidden" name="blocked" value="true" />
+        <label class="field"><span class="field__label">{{ t('admin.inst.reason') }}</span><input class="field__input" type="text" name="reason" placeholder="{{ t('admin.inst.reason_ph') }}" /></label>
+        <button class="btn btn--danger btn--sm" type="submit"><svg><use href="#a-ban"/></svg>{{ t('admin.inst.block') }}</button>
+      </form>
+      <p class="muted">{{ t('admin.inst.block_hint') }}</p>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

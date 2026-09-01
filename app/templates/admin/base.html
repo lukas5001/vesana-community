@@ -1,26 +1,69 @@
-{% extends "base.html" %}
-{% block title %}Admin · {{ self.admin_title() }} · Vesana Community Hub{% endblock %}
-
-{% block header_extra %}
-<a class="hdr-link" href="/admin/logout">Admin · {{ t('nav.signout') }}</a>
-{% endblock %}
-
-{% block content %}
-<section class="admin">
-  <header class="admin__head">
-    <h1 class="admin__title">Admin · {% block admin_title %}{% endblock %}</h1>
-    <nav class="admin__nav">
-      {% for s in sections %}
-      <a
-        class="admin__nav-link {% if s.key == active %}admin__nav-link--active{% endif %}"
-        href="{{ s.href }}"
-      >{{ s.label }}</a>
-      {% endfor %}
-    </nav>
-  </header>
-
-  <div class="admin__body">
-    {% block admin_content %}{% endblock %}
-  </div>
-</section>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="csrf-token" content="{{ csrf }}" />
+    <meta name="theme-color" content="#F5EDE0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1F1419" media="(prefers-color-scheme: dark)" />
+    <title>{% block title %}{{ t('admin.nav.' ~ active) }}{% endblock %} · Admin · Vesana Community</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/css/community.css" />
+    <link rel="stylesheet" href="/static/css/admin.css" />
+    <script src="/static/js/theme.js"></script>
+  </head>
+  <body class="ad-body">
+    {% include "_icons.html" %}
+    {% include "admin/_icons.html" %}
+    <div class="ad" data-shell>
+      <aside class="ad-side" id="ad-side">
+        <a class="ad-brand" href="/admin"><svg width="20" height="20"><use href="#i-mark"/></svg>VESANA <span>Admin</span></a>
+        <nav class="ad-nav" aria-label="Admin">
+          {% for s in sections %}
+          <a href="{{ s.href }}" {% if s.key == active %}aria-current="page"{% endif %}>
+            <svg><use href="#a-{{ s.icon }}"/></svg><span>{{ t('admin.nav.' ~ s.key) }}</span>
+            {% if badges.get(s.key) %}<b class="ad-badge">{{ badges[s.key] }}</b>{% endif %}
+          </a>
+          {% endfor %}
+        </nav>
+        <div class="ad-side-foot">
+          <a href="/"><svg><use href="#a-external"/></svg>{{ t('admin.to_site') }}</a>
+          <span class="mono">v{{ version }}</span>
+        </div>
+      </aside>
+      <div class="ad-main">
+        <header class="ad-bar">
+          <button class="ad-menu" type="button" aria-label="{{ t('admin.menu') }}" aria-controls="ad-side" data-side-toggle><svg><use href="#a-menu"/></svg></button>
+          <nav class="ad-crumbs" aria-label="{{ t('nav.path') }}">
+            <a href="/admin">{{ t('admin.title') }}</a>
+            {% block crumbs %}<i>/</i><b>{{ t('admin.nav.' ~ active) }}</b>{% endblock %}
+          </nav>
+          <div class="ad-bar-r">
+            <span class="lang">{% for l in languages %}{% if l == lang %}<span>{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}" hreflang="{{ l }}">{{ l|upper }}</a>{% endif %}{% if not loop.last %}·{% endif %}{% endfor %}</span>
+            <button class="theme-btn" type="button" data-theme-toggle aria-label="{{ t('nav.theme') }}" title="{{ t('nav.theme') }}"><svg><use href="#i-moon"/></svg></button>
+            <a class="ad-user" href="/admin/security" title="{{ t('admin.nav.security') }}"><svg><use href="#a-user"/></svg>{{ admin_user }}</a>
+            <a class="hdr-link" href="/admin/logout">{{ t('nav.signout') }}</a>
+          </div>
+        </header>
+        <main class="ad-content">
+          {% for f in flashes %}<div class="flash flash--{{ f.kind }}" role="status">{{ f.text }}</div>{% endfor %}
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+    <dialog class="confirm" data-confirm-dialog>
+      <form method="dialog" class="confirm__box">
+        <h2 class="confirm__title" data-confirm-title>{{ t('admin.confirm.title') }}</h2>
+        <p class="confirm__text" data-confirm-text></p>
+        <div class="confirm__actions">
+          <button class="btn btn--ghost" type="button" value="cancel" data-confirm-cancel>{{ t('common.cancel') }}</button>
+          <button class="btn btn--danger" type="button" value="ok" data-confirm-ok>{{ t('admin.confirm.ok') }}</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="/static/js/community.js" defer></script>
+    <script src="/static/js/admin.js" defer></script>
+  </body>
+</html>

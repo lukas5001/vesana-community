@@ -1,0 +1,11 @@
+{# Seitenleiste unter jeder Liste. Erwartet `pager` (page/pages/total/start/end/prev/next). #}
+<div class="pager">
+  <span class="pager__count">{{ t('admin.pager.range', start=pager.start, end=pager.end, total=pager.total) }}</span>
+  {% if pager.pages > 1 %}
+  <span class="pager__nav">
+    {% if pager.prev %}<a class="btn btn--ghost btn--sm" href="{{ pager.prev }}">← {{ t('admin.pager.prev') }}</a>{% endif %}
+    <span class="mono">{{ pager.page }} / {{ pager.pages }}</span>
+    {% if pager.next %}<a class="btn btn--ghost btn--sm" href="{{ pager.next }}">{{ t('admin.pager.next') }} →</a>{% endif %}
+  </span>
+  {% endif %}
+</div>

@@ -16,6 +16,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.requests import Request
 
+from app.auth.csrf import csrf_token
 from app.i18n import DEFAULT_LANG, LANGUAGES, label, normalize_lang, translate
 from app.identity import is_real_name, public_name
 from app.version import VERSION
@@ -73,6 +74,21 @@ def _global_context(request: Request) -> dict:
         query = urlencode(params)
         return request.url.path + (f"?{query}" if query else "")
 
+    # Einmal-Meldungen (Admin): beim Rendern konsumiert, Text erst hier übersetzt.
+    flashes = []
+    try:
+        raw_flashes = sess.pop("flash", None) or []
+        for item in raw_flashes:
+            if isinstance(item, dict) and item.get("key"):
+                flashes.append(
+                    {
+                        "kind": item.get("kind", "ok"),
+                        "text": t(item["key"], **(item.get("kw") or {})),
+                    }
+                )
+    except (AssertionError, KeyError, AttributeError, TypeError):
+        flashes = []
+
     return {
         "version": VERSION,
         "current_instance": current_instance,
@@ -81,6 +97,8 @@ def _global_context(request: Request) -> dict:
         "t": t,
         "lbl": lbl,
         "href": href,
+        "csrf": csrf_token(request),
+        "flashes": flashes,
     }
 
 
@@ -110,3 +128,44 @@ def markdown_safe(text: str | None) -> Markup:
 
 
 templates.env.filters["markdown_safe"] = markdown_safe
+
+
+def fmt_dt(value) -> str:
+    """``01.09.2026 08:15`` (UTC) — für Protokoll und Listen."""
+    if not value:
+        return "—"
+    return value.strftime("%d.%m.%Y %H:%M")
+
+
+def fmt_date(value) -> str:
+    if not value:
+        return "—"
+    return value.strftime("%d.%m.%Y")
+
+
+def rel_time(value, lang: str = DEFAULT_LANG) -> str:
+    """„vor 3 Std." / „3 h ago" — grob, für den Aktivitätsstrom."""
+    from datetime import UTC, datetime
+
+    if not value:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    seconds = max(0, int((datetime.now(UTC) - value).total_seconds()))
+    if seconds < 60:
+        return translate(lang, "time.now")
+    minutes = seconds // 60
+    if minutes < 60:
+        return translate(lang, "time.min", n=minutes)
+    hours = minutes // 60
+    if hours < 48:
+        return translate(lang, "time.h", n=hours)
+    days = hours // 24
+    if days < 60:
+        return translate(lang, "time.d", n=days)
+    return fmt_date(value)
+
+
+templates.env.filters["dt"] = fmt_dt
+templates.env.filters["d"] = fmt_date
+templates.env.filters["ago"] = rel_time

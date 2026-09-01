@@ -2,7 +2,7 @@
 
 * ``get_current_instance`` — verifies a Bearer API token, loads the Instance and
   rejects blocked instances on every request.
-* ``require_admin`` — HTTP Basic auth from ``.env``, compared timing-safe.
+* ``require_admin`` — Admin-SESSION (Login-Seite + optional TOTP), mit Idle-Ablauf.
 * ``get_session_instance`` — resolves the logged-in instance from the signed
   session cookie (used by the HTML UI), or ``None`` if not logged in.
 """
@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 import hmac
+import time
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import (
@@ -82,19 +84,32 @@ def verify_admin_credentials(username: str, password: str, settings: Settings) -
 
 
 def require_admin(request: Request) -> str:
-    """Require an authenticated admin SESSION (set by ``POST /admin/login``).
+    """Require an authenticated admin SESSION (set by the admin login flow).
 
     The HTML admin area is browser-only, so admin auth lives in the signed
     session cookie (``is_admin``) — NOT HTTP Basic. Unauthenticated requests are
     redirected to the login page via a 303 (so a browser lands on the form
-    instead of a credentials popup).
+    instead of a credentials popup). Eine Sitzung ohne Aktivität länger als
+    ``COMMUNITY_ADMIN_IDLE_MINUTES`` läuft ab (``?reason=expired``).
     """
-    if request.session.get("is_admin"):
-        return request.session.get("admin_user") or "admin"
+    sess = request.session
+    if sess.get("is_admin"):
+        seen = float(sess.get("admin_seen_at") or 0)
+        idle = get_settings().COMMUNITY_ADMIN_IDLE_MINUTES * 60
+        if seen and time.time() - seen > idle:
+            for key in ("is_admin", "admin_user", "admin_seen_at", "totp_setup"):
+                sess.pop(key, None)
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER,
+                detail="admin session expired",
+                headers={"Location": f"/admin/login?reason=expired&next={quote(request.url.path)}"},
+            )
+        sess["admin_seen_at"] = time.time()
+        return sess.get("admin_user") or "admin"
     raise HTTPException(
         status_code=status.HTTP_303_SEE_OTHER,
         detail="admin login required",
-        headers={"Location": "/admin/login"},
+        headers={"Location": f"/admin/login?next={quote(request.url.path)}"},
     )
 
 

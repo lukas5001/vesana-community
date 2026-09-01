@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('adminlogin.code_title') }} &middot; Vesana Community Hub{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <p class="eyebrow">{{ t('admin.title') }}</p>
+  <h1>{{ t('adminlogin.code_title') }}</h1>
+  <p class="lede">{{ t('adminlogin.code_lede') }}</p>
+
+  {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+  <form class="ask-form" method="post" action="/admin/login/verify">
+    <label class="field">
+      <span class="field__label">{{ t('adminlogin.code') }}</span>
+      <input class="field__input mono" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}|[a-zA-Z0-9-]{10,11}" placeholder="123 456" autofocus required />
+      <span class="field__hint">{{ t('adminlogin.code_hint') }}</span>
+    </label>
+    <div class="form-actions">
+      <button class="btn" type="submit">{{ t('adminlogin.code_btn') }}</button>
+      <a class="hdr-link" href="/admin/logout">{{ t('common.cancel') }}</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

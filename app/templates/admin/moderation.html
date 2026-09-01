@@ -1,53 +1,57 @@
 {% extends "admin/base.html" %}
-{% block admin_title %}Moderation{% endblock %}
 
-{% block admin_content %}
-<nav class="admin-tabs">
-  {% for opt in ["open", "resolved", "dismissed", "all"] %}
-  <a
-    class="admin-tab {% if status_filter == opt %}admin-tab--active{% endif %}"
-    href="/admin/moderation?status={{ opt }}"
-  >{{ opt }}</a>
-  {% endfor %}
-</nav>
+{% block content %}
+{% set next_url = path ~ ('?' ~ request.url.query if request.url.query else '') %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.mod.eyebrow') }}</p>
+    <h1>{{ t('admin.mod.title') }}</h1>
+    <p class="lede">{{ t('admin.mod.lede') }}</p>
+  </div>
+</div>
 
+<form class="ad-filters" method="get" action="/admin/moderation" data-tools>
+  <div class="chips">
+    {% for opt in ['open', 'resolved', 'dismissed', 'all'] %}
+    <a class="chip {% if status_filter == opt %}on{% endif %}" href="{{ href(status=opt, page=none) }}">{{ opt if opt != 'all' else t('common.all') }} <span class="chip__n">{{ counts[opt] }}</span></a>
+    {% endfor %}
+  </div>
+</form>
+
+<div data-results>
 {% if not reports %}
-<p class="admin-empty">Keine Reports in dieser Ansicht.</p>
+<p class="empty">{{ t('admin.mod.empty') }}</p>
 {% else %}
-<table class="admin-table">
-  <thead>
-    <tr>
-      <th>Typ</th>
-      <th>Vorschau</th>
-      <th>Grund</th>
-      <th>Status</th>
-      <th>Aktionen</th>
-    </tr>
-  </thead>
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr>
+    <th>{{ t('admin.mod.target') }}</th>
+    <th>{{ t('admin.mod.preview') }}</th>
+    <th>{{ t('admin.mod.reason') }}</th>
+    <th>{{ t('admin.mod.reporter') }}</th>
+    <th>{{ t('admin.col.status') }}</th>
+    <th class="r">{{ t('admin.col.actions') }}</th>
+  </tr></thead>
   <tbody>
-    {% for r in reports %}
+  {% for r in reports %}
     <tr>
-      <td><span class="badge badge--community">{{ r.target_type }}</span></td>
-      <td class="admin-preview">{{ r.target_preview }}</td>
-      <td class="admin-reason">{{ r.reason }}</td>
-      <td><span class="badge badge--closed">{{ r.status }}</span></td>
-      <td class="admin-actions">
-        {% if r.status == "open" %}
-        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="admin-inline">
-          <input type="hidden" name="action" value="remove" />
-          <button class="admin-btn admin-btn--bad" type="submit">Entfernen</button>
-        </form>
-        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="admin-inline">
-          <input type="hidden" name="action" value="dismiss" />
-          <button class="admin-btn" type="submit">Verwerfen</button>
-        </form>
-        {% else %}
-        <span class="admin-dim">erledigt</span>
-        {% endif %}
+      <td><span class="badge">{{ r.target_type }}</span><div class="vd mono">{{ r.created_at | dt }}</div></td>
+      <td class="wrap-cell">{% if r.target_href %}<a class="nm" href="{{ r.target_href }}" target="_blank" rel="noopener">{{ r.target_preview or '—' }}</a>{% else %}<span class="muted">{{ r.target_preview or '—' }}</span>{% endif %}</td>
+      <td class="wrap-cell">{{ r.reason }}</td>
+      <td><a href="/admin/instances/{{ r.reporter_uuid }}">{{ r.reporter_display }}</a></td>
+      <td><span class="badge badge--{{ 'pending' if r.status == 'open' else ('ok' if r.status == 'resolved' else 'closed') }}">{{ r.status }}</span></td>
+      <td class="r act">
+        {% if r.status == 'open' %}
+        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="inline" data-confirm="{{ t('admin.mod.remove_confirm', type=r.target_type) }}" data-confirm-ok="{{ t('admin.mod.remove') }}">{% include "admin/_csrf.html" %}<input type="hidden" name="action" value="remove" /><button class="btn btn--danger btn--sm" type="submit"><svg><use href="#a-trash"/></svg>{{ t('admin.mod.remove') }}</button></form>
+        <form method="post" action="/admin/moderation/{{ r.id }}/resolve" class="inline">{% include "admin/_csrf.html" %}<input type="hidden" name="action" value="dismiss" /><button class="btn btn--ghost btn--sm" type="submit">{{ t('admin.mod.dismiss') }}</button></form>
+        {% else %}<span class="muted">{{ t('admin.mod.done') }}</span>{% endif %}
       </td>
     </tr>
-    {% endfor %}
+  {% endfor %}
   </tbody>
 </table>
+</div>
+{% include "admin/_pager.html" %}
 {% endif %}
+</div>
 {% endblock %}

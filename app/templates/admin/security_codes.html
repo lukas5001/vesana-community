@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block crumbs %}<i>/</i><a href="/admin/security">{{ t('admin.nav.security') }}</a><i>/</i><b>{{ t('admin.sec.codes_title') }}</b>{% endblock %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.sec.two_fa') }}</p>
+    <h1>{{ t(heading_key) }}</h1>
+    <p class="lede">{{ t('admin.sec.codes_lede') }}</p>
+  </div>
+</div>
+
+<div class="setup">
+  <div class="panel">
+    <h3>{{ t('admin.sec.codes_title') }}</h3>
+    <ol class="codes">
+      {% for c in codes %}<li class="mono">{{ c }}</li>{% endfor %}
+    </ol>
+    <div class="form-actions">
+      <button class="btn btn--ghost btn--sm" type="button" data-copy="{{ codes | join('\n') }}" data-copied="✓ {{ t('admin.sec.copied') }}"><svg><use href="#a-copy"/></svg>{{ t('admin.sec.copy_all') }}</button>
+      <a class="btn btn--sm" href="/admin/security">{{ t('admin.sec.codes_done') }}</a>
+    </div>
+  </div>
+  <div class="notice notice--warn">
+    <svg><use href="#a-alert"/></svg>
+    <div><b>{{ t('admin.sec.codes_once') }}</b><p>{{ t('admin.sec.codes_once_lede') }}</p></div>
+  </div>
+</div>
+{% endblock %}

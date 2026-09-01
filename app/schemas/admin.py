@@ -1,4 +1,4 @@
-"""Pydantic schemas for the community admin panel (C8).
+"""Pydantic schemas for the community admin panel.
 
 These back the AdminFlag-gated JSON API (``/api/v1/admin/*``). The HTML admin
 pages render their own context, but reuse the same service layer.
@@ -21,10 +21,12 @@ class ReportItem(BaseModel):
     target_type: str
     target_id: str
     reporter_uuid: str
+    reporter_display: str = ""
     reason: str
     status: str
     created_at: datetime
     target_preview: str
+    target_href: str | None = None
 
 
 class ResolveReportIn(BaseModel):
@@ -38,7 +40,11 @@ class InstanceItem(BaseModel):
 
     uuid: str
     display_name: str
+    public_name: str = ""
+    chosen_name: str | None = None
     is_blocked: bool
+    blocked_reason: str | None = None
+    blocked_at: datetime | None = None
     joined_at: datetime
     last_seen_at: datetime
     uploaded_count: int
@@ -48,6 +54,7 @@ class BlockIn(BaseModel):
     """Body for blocking/unblocking an instance."""
 
     blocked: bool
+    reason: str | None = None
 
 
 class AdminStats(BaseModel):

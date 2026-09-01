@@ -49,8 +49,23 @@ API_TOKEN_TTL_DAYS=30
 LOGIN_TOKEN_LEEWAY_SECONDS=30
 COMMUNITY_ADMIN_USER=lukas
 COMMUNITY_ADMIN_PASSWORD=<strong-distinct-from-portal>
+COMMUNITY_ADMIN_IDLE_MINUTES=480
+COMMUNITY_ADMIN_API_TOKEN=            # optional; nur für Skripte gegen /api/v1/admin/*
 COMMUNITY_BASE_URL=https://community.vesana.org
 ```
+
+### Admin-Konto (seit 0.11.0)
+
+- Anmeldung unter `/admin/login` (Benutzer/Passwort aus der `.env`). Den
+  **zweiten Faktor (TOTP)** richtet der Admin selbst unter *Sicherheit* ein —
+  er liegt verschlüsselt in `community.admin_accounts` (Schlüssel aus
+  `SECRET_KEY`: wer den `SECRET_KEY` rotiert, muss 2FA neu einrichten).
+- **Notfall** (Gerät weg, keine Backup-Codes):
+  `DELETE FROM community.admin_accounts WHERE username = '<user>';` — bewusst
+  nur per Datenbank, keine Umgebungsvariable.
+- Sobald 2FA aktiv ist, nimmt die Admin-JSON-API (`X-Admin-Authorization`)
+  Benutzer+Passwort NICHT mehr an — nur `Bearer <COMMUNITY_ADMIN_API_TOKEN>`.
+- Jede Admin-Aktion steht in `community.admin_audit_log` (Seite *Protokoll*).
 
 Mount the public PEM into the container at `/app/secrets/portal_ed25519_public.pem`
 (compose volume) — never bake secrets into the image.

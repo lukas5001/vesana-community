@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.11.0 — Admin-Portal: Neubau + zweiter Faktor
+
+Der Admin-Bereich ist komplett neu — eigene Shell im Vesana-Design (Seitenleiste
+Ink/Oxblood, hell + dunkel, DE/EN, mobil), neun Sektionen statt fünf flacher
+Tabellen, und zum ersten Mal ein zweiter Faktor für das Admin-Konto.
+
+### Sektionen
+
+- **Übersicht** = „Was braucht dich" (Review-Eingang, offene Meldungen, Fragen
+  ohne Antwort, fehlender 2FA), Kennzahlen, Aktivitätsstrom über alle Tabellen,
+  letzte Admin-Aktionen, Systemstand (Version, Datenbank-Revision, Icons).
+- **Review** mit Detailseite: Bundle-Inspektion (Checks mit Einstellungen,
+  mitgelieferte Scripts als Quelltext mit markierten Fundstellen des
+  Script-Gates, Versionen, Uploader) — nie mehr blind freigeben.
+- **Profile**: Suche, Facetten (Stufe, Kategorie, Hersteller, Review-Status,
+  Team/Community, mit Scripts, Gelöschte), Sortierung, Seiten. Detailseite mit
+  Metadaten-Editor (Name, Hersteller, Kategorie, Symbol, Tags, Beschreibung,
+  Mindestversion, Voraussetzungen), Versionen (andere Version aktuell setzen —
+  mit Warnung, dass jede importierende Instanz ein Update sieht), Kommentare
+  (entfernen/wiederherstellen), Verlauf, Löschen + **Wiederherstellen**.
+- **Moderation**: Link zum gemeldeten Ziel, Name des Meldenden, Zähler je Status.
+- **Fragen & Antworten** (neu): schließen mit Grund / wieder öffnen,
+  Team-Kennzeichnung für Fragen und Antworten, Antworten löschen.
+- **Instanzen**: Suche, aktiv/gesperrt, Detailseite mit Uploads, Beiträgen,
+  Sperren **mit Grund** (`instances.blocked_reason/blocked_at`), Entsperren,
+  gewählten Namen zurücksetzen.
+- **Icons** (neu): Bibliotheksstand je Quelle, Suche, Hersteller ohne Logo.
+- **Protokoll** (neu): Tabelle `admin_audit_log` — jede Admin-Aktion und jede
+  Anmeldung mit Ziel, Details, IP; filterbar; Verlauf je Profil/Instanz/Frage.
+- **Sicherheit** (neu): TOTP einrichten (QR + Schlüssel, scharf erst nach dem
+  ersten gültigen Code), zehn Backup-Codes (nur als HMAC gespeichert, einmal
+  sichtbar), neue Codes erzeugen, Abschalten nur mit Passwort + Code,
+  Anmelde-Verlauf, Notfall-Hinweis.
+
+### Sicherheit
+
+- **Zweiter Faktor (TOTP, RFC 6238)** für die Admin-Anmeldung: Passwort →
+  Code-Seite → Sitzung. Replay-Schutz über `totp_last_counter` (ein Code gilt
+  genau einmal), Backup-Codes werden verbraucht. Geheimnis AES-GCM-verschlüsselt
+  (Schlüssel per HKDF aus `SECRET_KEY`). Tabelle `admin_accounts`.
+- **CSRF-Token** an jedem Admin-Formular (`require_csrf`), Sitzung wird beim
+  Login frisch gesetzt, **Idle-Ablauf** (`COMMUNITY_ADMIN_IDLE_MINUTES`, 480).
+- Die Maschinen-API (`X-Admin-Authorization`) akzeptiert Benutzer+Passwort nur
+  noch, solange KEIN zweiter Faktor aktiv ist — sonst nur `Bearer
+  <COMMUNITY_ADMIN_API_TOKEN>`. Vorher hätte die API 2FA still umgangen.
+- Bestätigungen laufen über einen eigenen `<dialog>` statt `window.confirm`.
+
+### Technik
+
+- Migration **0011** (`admin_accounts`, `admin_audit_log`,
+  `instances.blocked_reason/blocked_at`) — additiv.
+- Neue Abhängigkeit `segno` (QR als Inline-SVG, reines Python).
+- Alt-CSS des C8-Admins (`.admin-*`, Alias-Tokens) entfernt; neu `admin.css`
+  + `admin.js`; Texte in `app/i18n_admin.py`.
+- Tests: `tests/test_admin_rework.py` (RFC-6238-Vektoren, Replay, Backup-Codes,
+  Verschlüsselung, CSRF, Login-Ablauf mit/ohne 2FA, API-Policy, Protokoll,
+  alle Seiten, Quell-Anker: CSRF an jedem Formular, keine Popups, i18n je Aktion).
+
 ## 0.10.1 — Besucher-Tor: Website nur mit Vesana-Sitzung
 
 - Alle HTML-Seiten (`/`, `/p/*`, `/questions*`, `/upload`, `/account`, `/icons`)

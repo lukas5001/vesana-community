@@ -39,9 +39,18 @@ class Settings(BaseSettings):
     API_TOKEN_TTL_DAYS: int = 30
     LOGIN_TOKEN_LEEWAY_SECONDS: int = 30
 
-    # --- Admin basic auth ---------------------------------------------------
+    # --- Admin --------------------------------------------------------------
+    # Benutzer/Passwort des EINEN Hub-Admins. Der zweite Faktor (TOTP) wird in
+    # der Oberfläche eingerichtet und liegt in ``admin_accounts``.
     COMMUNITY_ADMIN_USER: str = "admin"
     COMMUNITY_ADMIN_PASSWORD: str = "change-me"
+    # Admin-Sitzung läuft nach so vielen Minuten ohne Aktivität ab.
+    COMMUNITY_ADMIN_IDLE_MINUTES: int = 480
+    # Maschinen-Zugang zur Admin-JSON-API (``Authorization: Bearer <token>`` im
+    # ``X-Admin-Authorization``-Header). Sobald der Admin 2FA aktiviert hat,
+    # gilt für die API NUR noch dieser Token — Benutzer+Passwort allein
+    # würden den zweiten Faktor sonst still umgehen.
+    COMMUNITY_ADMIN_API_TOKEN: str | None = None
 
     # --- Misc ---------------------------------------------------------------
     COMMUNITY_BASE_URL: str = "http://localhost:8080"

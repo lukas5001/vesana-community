@@ -1,0 +1,118 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ profile.name }} · {{ t('admin.nav.profiles') }}{% endblock %}
+{% block crumbs %}<i>/</i><a href="/admin/profiles">{{ t('admin.nav.profiles') }}</a><i>/</i><b>{{ profile.name }}</b>{% endblock %}
+
+{% block content %}
+{% set next_url = '/admin/profiles/' ~ profile.id %}
+{% set allow_version_switch = not profile.is_removed %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow"><span class="tier tier-{{ profile.tier }}">{{ profile.tier }}</span> <span class="badge badge--{{ profile.review_status }}">{{ profile.review_status }}</span>{% if profile.is_removed %} <span class="badge badge--closed">{{ t('admin.prof.removed') }}</span>{% endif %}</p>
+    <h1>{{ profile.name }}</h1>
+    <p class="lede">{{ profile.vendor or '—' }} · {{ lbl('cat', profile.category) }} · {{ t('detail.by') }} <a href="{% if profile.uploader_instance_uuid %}/admin/instances/{{ profile.uploader_instance_uuid }}{% else %}/admin/profiles?source=team{% endif %}">{{ uploader }}</a> · {{ t('admin.col.updated') }} {{ profile.updated_at | dt }}</p>
+  </div>
+  <div class="ad-head-r">
+    <a class="btn btn--ghost btn--sm" href="/p/{{ profile.id }}" target="_blank" rel="noopener"><svg><use href="#a-external"/></svg>{{ t('admin.prof.public') }}</a>
+    {% if profile.review_status == 'pending' %}<a class="btn btn--sm" href="/admin/review/{{ profile.id }}"><svg><use href="#a-inbox"/></svg>{{ t('admin.review.inspect') }}</a>{% endif %}
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div>
+    <nav class="tabs" role="tablist">
+      <a href="?tab=edit" role="tab" data-tab-link="edit" aria-selected="true">{{ t('admin.prof.tab_edit') }}</a>
+      <a href="?tab=checks" role="tab" data-tab-link="checks" aria-selected="false">{{ t('detail.tab_checks') }}<span class="num">{{ checks | length }}</span></a>
+      <a href="?tab=scripts" role="tab" data-tab-link="scripts" aria-selected="false">{{ t('admin.insp.tab_scripts') }}<span class="num">{{ scripts | length }}</span></a>
+      <a href="?tab=versions" role="tab" data-tab-link="versions" aria-selected="false">{{ t('detail.tab_versions') }}<span class="num">{{ versions | length }}</span></a>
+      <a href="?tab=comments" role="tab" data-tab-link="comments" aria-selected="false">{{ t('detail.tab_comments') }}<span class="num">{{ comments | length }}</span></a>
+      <a href="?tab=history" role="tab" data-tab-link="history" aria-selected="false">{{ t('admin.prof.tab_history') }}<span class="num">{{ history.total }}</span></a>
+    </nav>
+
+    <section class="tab" data-tab="edit">
+      <form method="post" action="/admin/profiles/{{ profile.id }}/update" class="form-grid">{% include "admin/_csrf.html" %}
+        <label class="field span2"><span class="field__label">{{ t('admin.prof.f_name') }}</span><input class="field__input" type="text" name="name" value="{{ profile.name }}" required maxlength="255" /></label>
+        <label class="field"><span class="field__label">{{ t('browse.vendor') }}</span><input class="field__input" type="text" name="vendor" value="{{ profile.vendor or '' }}" list="vendor-list" maxlength="128" /><datalist id="vendor-list">{% for v in facets.vendors %}<option value="{{ v }}"></option>{% endfor %}</datalist></label>
+        <label class="field"><span class="field__label">{{ t('browse.category') }}</span><input class="field__input" type="text" name="category" value="{{ profile.category or '' }}" list="category-list" maxlength="128" /><datalist id="category-list">{% for c in facets.categories %}<option value="{{ c }}"></option>{% endfor %}</datalist></label>
+        <label class="field"><span class="field__label">{{ t('admin.prof.f_icon') }}</span><input class="field__input mono" type="text" name="icon" value="{{ profile.icon or '' }}" maxlength="128" /><span class="field__hint">{{ t('admin.prof.f_icon_hint') }}</span></label>
+        <label class="field"><span class="field__label">{{ t('detail.min_version') }}</span><input class="field__input mono" type="text" name="vesana_min_version" value="{{ profile.vesana_min_version or '' }}" placeholder="1.9.400" maxlength="64" /></label>
+        <label class="field span2"><span class="field__label">{{ t('admin.prof.f_tags') }}</span><input class="field__input" type="text" name="tags" value="{{ (profile.tags or []) | join(', ') }}" /><span class="field__hint">{{ t('admin.prof.f_tags_hint') }}</span></label>
+        <label class="field span2"><span class="field__label">{{ t('detail.description') }}</span><textarea class="field__input" name="description_md" rows="6">{{ profile.description_md or '' }}</textarea></label>
+        <fieldset class="field span2 checks-row"><legend class="field__label">{{ t('detail.requirements') }}</legend>
+          {% for k in ['agent','collector','snmp','ssh','api_token'] %}
+          <label class="check-opt"><input type="checkbox" name="requires_{{ k }}" {% if profile['requires_' ~ k] %}checked{% endif %} /><span>{{ t('reg.req_' ~ k) }}</span></label>
+          {% endfor %}
+          <span class="field__hint span2">{{ t('admin.prof.req_hint') }}</span>
+        </fieldset>
+        <div class="form-actions span2"><button class="btn" type="submit"><svg><use href="#a-check"/></svg>{{ t('common.save') }}</button></div>
+      </form>
+    </section>
+
+    {% include "admin/_inspection.html" %}
+
+    <section class="tab" data-tab="comments" hidden>
+      {% if not comments %}<p class="muted">{{ t('detail.no_comments') }}</p>{% else %}
+      <ul class="clist">
+        {% for c in comments %}
+        <li class="cmt {% if c.is_removed %}cmt--removed{% endif %} {% if c.is_reply %}cmt--reply{% endif %}">
+          <div class="cmt-head"><a class="au" href="/admin/instances/{{ c.author_uuid }}">{{ c.author }}</a>{% if c.is_reply %}<span class="badge">{{ t('admin.prof.reply') }}</span>{% endif %}{% if c.is_removed %}<span class="badge badge--closed">{{ t('detail.removed') }}</span>{% endif %}<span class="score">{{ c.score }} · {{ c.created_at | dt }}</span></div>
+          <div class="prose">{{ c.body }}</div>
+          <div class="act act--left">
+            {% if c.is_removed %}
+            <form method="post" action="/admin/comments/{{ c.id }}/restore" class="inline">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ next_url }}?tab=comments" /><button class="btn btn--ghost btn--sm" type="submit"><svg><use href="#a-undo"/></svg>{{ t('admin.prof.restore') }}</button></form>
+            {% else %}
+            <form method="post" action="/admin/comments/{{ c.id }}/remove" class="inline" data-confirm="{{ t('admin.prof.comment_confirm') }}" data-confirm-ok="{{ t('admin.prof.remove') }}">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ next_url }}?tab=comments" /><button class="btn btn--ghost btn--sm" type="submit"><svg><use href="#a-trash"/></svg>{{ t('admin.prof.remove') }}</button></form>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+
+    <section class="tab" data-tab="history" hidden>
+      {% if not history.items %}<p class="muted">{{ t('admin.audit.empty') }}</p>{% else %}
+      <ul class="alog alog--wide">
+        {% for a in history.items %}
+        <li><span class="alog__a">{{ t('audit.' ~ a.action) }}</span><span class="alog__s">{{ a.summary or '' }}{% if a.details and a.details.reason %} — {{ a.details.reason }}{% endif %}{% if a.details and a.details.changed %} — {{ a.details.changed.keys() | join(', ') }}{% endif %}</span><span class="alog__m">{{ a.admin_user }} · {{ a.created_at | dt }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('reg.col_tier') }}</h3>
+      <form method="post" action="/admin/profiles/{{ profile.id }}/tier" class="row">{% include "admin/_csrf.html" %}
+        <span class="sel"><select name="tier" aria-label="Tier">{% for tr in tiers %}<option value="{{ tr }}" {% if profile.tier == tr %}selected{% endif %}>{{ tr }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+        <button class="btn btn--ghost btn--sm" type="submit">{{ t('admin.prof.set') }}</button>
+      </form>
+      <p class="muted">{{ t('admin.review.tier_hint') }}</p>
+    </div>
+
+    <div class="panel">
+      <h3>{{ t('detail.numbers') }}</h3>
+      <dl class="kv">
+        <dt>{{ t('detail.downloads') }}</dt><dd class="mono">{{ profile.download_count }}</dd>
+        <dt>{{ t('browse.stat_imports') }}</dt><dd class="mono">{{ profile.import_count }}</dd>
+        <dt>{{ t('detail.score') }}</dt><dd class="mono">{{ profile.vote_score }}</dd>
+        <dt>{{ t('admin.prof.reports_open') }}</dt><dd class="mono">{{ open_reports }}</dd>
+        <dt>{{ t('admin.col.uploaded') }}</dt><dd class="mono">{{ profile.created_at | d }}</dd>
+        {% if profile.approved_at %}<dt>{{ t('admin.prof.approved_at') }}</dt><dd class="mono">{{ profile.approved_at | d }}</dd>{% endif %}
+        <dt>ID</dt><dd class="mono small" data-copy="{{ profile.id }}">{{ profile.id }}</dd>
+      </dl>
+    </div>
+
+    <div class="panel panel--danger">
+      <h3>{{ t('admin.prof.danger') }}</h3>
+      {% if profile.is_removed %}
+      <form method="post" action="/admin/profiles/{{ profile.id }}/restore">{% include "admin/_csrf.html" %}<button class="btn btn--ok btn--sm" type="submit"><svg><use href="#a-undo"/></svg>{{ t('admin.prof.restore') }}</button></form>
+      <p class="muted">{{ t('admin.prof.restore_hint') }}</p>
+      {% else %}
+      <form method="post" action="/admin/profiles/{{ profile.id }}/delete" data-confirm="{{ t('admin.prof.delete_confirm', name=profile.name) }}" data-confirm-ok="{{ t('admin.prof.delete') }}">{% include "admin/_csrf.html" %}<button class="btn btn--danger btn--sm" type="submit"><svg><use href="#a-trash"/></svg>{{ t('admin.prof.delete') }}</button></form>
+      <p class="muted">{{ t('admin.prof.delete_hint') }}</p>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

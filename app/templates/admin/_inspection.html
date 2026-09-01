@@ -1,0 +1,76 @@
+{# Bundle-Inspektion (Checks · Scripts · Versionen) — geteilt von Review-Detail
+   und Profil-Detail. Erwartet: profile, checks, scripts, findings, versions,
+   current, bundle_meta. Versionen-Aktionen nur mit `allow_version_switch`. #}
+<section class="tab" data-tab="checks">
+  {% if not checks %}<p class="muted">{{ t('detail.no_checks') }}</p>{% else %}
+  <div class="reg-wrap">
+  <table class="reg reg--admin reg--checks">
+    <thead><tr><th>{{ t('admin.insp.check') }}</th><th>{{ t('admin.insp.type') }}</th><th>{{ t('admin.insp.settings') }}</th></tr></thead>
+    <tbody>
+    {% for c in checks %}
+      <tr>
+        <td><span class="nm">{{ c.name }}</span>{% if c.description %}<div class="vd">{{ c.description }}</div>{% endif %}</td>
+        <td class="mono">{{ c.check_type }}</td>
+        <td>{% if c.settings %}<dl class="kvs">{% for s in c.settings %}<dt>{{ s.key }}</dt><dd class="mono">{{ s.value }}</dd>{% endfor %}</dl>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+
+<section class="tab" data-tab="scripts" hidden>
+  {% if findings %}
+  <div class="notice notice--warn">
+    <svg><use href="#a-alert"/></svg>
+    <div><b>{{ t('admin.insp.findings_title', n=findings|length) }}</b><p>{{ t('admin.insp.findings_lede') }}</p>
+      <ul class="findings">{% for f in findings %}<li><code>{{ f.marker }}</code> <span class="muted">@ {{ f.where }}</span></li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% endif %}
+  {% if not scripts %}
+    <p class="muted">{% if profile.has_scripts %}{{ t('admin.insp.scripts_ref_only') }}{% else %}{{ t('admin.insp.no_scripts') }}{% endif %}</p>
+  {% else %}
+    {% for s in scripts %}
+    <details class="script" {% if s.hits %}open{% endif %}>
+      <summary>
+        <svg class="ico"><use href="#a-script"/></svg>
+        <span class="script__n">{{ s.name }}</span>
+        <span class="mono script__i">{{ s.interpreter }}{% if s.expected_output %} · {{ s.expected_output }}{% endif %} · {{ s.lines }} {{ t('admin.insp.lines') }}</span>
+        {% if s.hits %}<span class="badge badge--warn">{{ s.hits | length }} {{ t('admin.review.findings') }}</span>{% endif %}
+      </summary>
+      <pre class="code"><code>{% for line in s.body.splitlines() %}{% set ln = loop.index %}{% set hit = (s.hits | selectattr('line', 'equalto', ln) | list) %}<span class="code__l {% if hit %}code__l--hit{% endif %}"><span class="code__n">{{ ln }}</span>{{ line }}</span>
+{% endfor %}</code></pre>
+    </details>
+    {% endfor %}
+  {% endif %}
+</section>
+
+<section class="tab" data-tab="versions" hidden>
+  {% if not versions %}<p class="muted">{{ t('detail.versions_none') }}</p>{% else %}
+  {% if allow_version_switch is defined and allow_version_switch %}
+  <div class="notice"><svg><use href="#a-alert"/></svg><div>{{ t('admin.insp.version_warn') }}</div></div>
+  {% endif %}
+  <div class="reg-wrap">
+  <table class="reg reg--admin">
+    <thead><tr><th>{{ t('admin.col.version') }}</th><th>{{ t('admin.col.uploaded') }}</th><th>{{ t('admin.insp.checks_n') }}</th><th>{{ t('admin.insp.changelog') }}</th>{% if allow_version_switch is defined and allow_version_switch %}<th class="r"></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td class="mono">{{ v.version_tag }} {% if v.is_current %}<span class="tier tier-official">{{ t('detail.current') }}</span>{% endif %}</td>
+        <td class="mono">{{ v.created_at | dt }}</td>
+        <td class="mono">{{ (v.bundle_json.get('checks') or []) | length }}</td>
+        <td class="prose-sm">{% if v.changelog_md %}{{ v.changelog_md | markdown_safe }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        {% if allow_version_switch is defined and allow_version_switch %}
+        <td class="r act">{% if not v.is_current %}
+          <form method="post" action="/admin/profiles/{{ profile.id }}/versions/{{ v.id }}/current" class="inline" data-confirm="{{ t('admin.insp.version_confirm', tag=v.version_tag) }}" data-confirm-ok="{{ t('admin.insp.make_current') }}">{% include "admin/_csrf.html" %}<button class="btn btn--ghost btn--sm" type="submit">{{ t('admin.insp.make_current') }}</button></form>
+        {% endif %}</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
