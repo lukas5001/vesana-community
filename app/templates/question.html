@@ -26,12 +26,12 @@
 
 <div class="qbody">
   <div class="prose">{{ question.body_md | markdown_safe }}</div>
-  {% if question.tags %}<div class="tags" style="margin-top:10px">{% for tag in question.tags %}<a class="tag" href="/questions?tag={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
+  {% if question.tags %}<div class="tags mt-10">{% for tag in question.tags %}<a class="tag" href="/questions?tag={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
 </div>
 
-<h2 style="margin-bottom:12px">{{ t('qa.answers', count=answers | length) }}</h2>
-{% if not answers %}<p class="muted" style="margin-bottom:16px">{{ t('qa.no_answers') }}</p>{% endif %}
-<ul class="clist" style="max-width:760px">
+<h2 class="mb-12">{{ t('qa.answers', count=answers | length) }}</h2>
+{% if not answers %}<p class="muted mb-16">{{ t('qa.no_answers') }}</p>{% endif %}
+<ul class="clist mw-760">
   {% for a in answers %}
   <li class="cmt{% if a.is_accepted %} cmt--accepted{% endif %}">
     <div class="cmt-head">
@@ -47,12 +47,12 @@
 
 {% if question.is_closed %}
 {% elif current_instance %}
-<form class="cform" method="post" action="/questions/{{ question.id }}/answer" style="margin-top:20px">
+<form class="cform mt-20" method="post" action="/questions/{{ question.id }}/answer">
   <label class="field"><span class="field__label">{{ t('qa.answer_label') }}</span>
     <textarea class="field__input" name="body_md" rows="5" placeholder="{{ t('qa.answer_ph') }}" required></textarea></label>
   <div class="form-actions"><button class="btn" type="submit">{{ t('qa.answer_btn') }}</button></div>
 </form>
 {% else %}
-<p class="signin" style="margin-top:20px">{{ t('qa.answer_signin') }}</p>
+<p class="signin mt-20">{{ t('qa.answer_signin') }}</p>
 {% endif %}
 {% endblock %}

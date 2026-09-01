@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.2 — Inline-Styles raus (CSP)
+
+- `style-src 'self'` verwirft `style="…"`-Attribute im Browser still — die
+  Abstände auf Profil-, Fragen- und Konto-Seite und im Admin griffen nie.
+  Alle Inline-Styles durch Hilfsklassen ersetzt; Quell-Anker
+  `test_no_inline_scripts_or_styles_in_templates` verbietet sie jetzt.
+
 ## 0.11.1 — 2FA-QR-Code war nicht scannbar
 
 - Das QR-SVG kam mit festen `width`/`height` ohne `viewBox`; das CSS zwang es

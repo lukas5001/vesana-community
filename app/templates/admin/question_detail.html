@@ -19,7 +19,7 @@
   <div>
     <div class="panel">
       <div class="prose">{{ question.body_md | markdown_safe }}</div>
-      {% if question.tags %}<div class="tags" style="margin-top:10px">{% for tag in question.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
+      {% if question.tags %}<div class="tags mt-10">{% for tag in question.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
     </div>
 
     <h2 class="ad-h2">{{ t('admin.qa.answers') }} <span class="num">{{ answers | length }}</span></h2>
