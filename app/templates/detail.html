@@ -60,7 +60,7 @@
       {% endif %}
       <h2>{{ t('detail.description') }}</h2>
       <div class="prose">{% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">{{ t('detail.no_description') }}</p>{% endif %}</div>
-      {% if profile.tags %}<div class="tags" style="margin-top:12px">{% for tag in profile.tags %}<a class="tag" href="/?q={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
+      {% if profile.tags %}<div class="tags mt-12">{% for tag in profile.tags %}<a class="tag" href="/?q={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
     </section>
 
     <section class="tab" data-tab="versions" hidden>
@@ -84,7 +84,7 @@
         <div class="form-actions"><button class="btn" type="submit">{{ t('detail.comment_btn') }}</button></div>
       </form>
       {% else %}<p class="signin">{{ t('detail.comment_signin') }}</p>{% endif %}
-      {% if not comment_threads %}<p class="muted" style="margin-top:14px">{{ t('detail.no_comments') }}</p>{% endif %}
+      {% if not comment_threads %}<p class="muted mt-14">{{ t('detail.no_comments') }}</p>{% endif %}
       <ul class="clist">
         {% for thread in comment_threads %}{% set c = thread.comment %}
         <li class="cmt{% if c.is_helpful %} cmt--helpful{% endif %}">
@@ -118,7 +118,7 @@
         {% endfor %}
       </ul>
       {% endif %}
-      {% if current_instance %}<p style="margin-top:14px"><a class="btn btn--ghost btn--sm" href="/questions/ask?profile_id={{ profile.id }}">{{ t('qa.ask') }}</a></p>{% endif %}
+      {% if current_instance %}<p class="mt-14"><a class="btn btn--ghost btn--sm" href="/questions/ask?profile_id={{ profile.id }}">{{ t('qa.ask') }}</a></p>{% endif %}
     </section>
   </div>
 

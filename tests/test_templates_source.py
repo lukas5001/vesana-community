@@ -107,3 +107,6 @@ def test_no_inline_scripts_or_styles_in_templates() -> None:
         text = path.read_text(encoding="utf-8")
         assert re.search(r"<script(?![^>]*\bsrc=)", text) is None, path.name
         assert re.search(r"\son(click|submit|change|input)=", text, re.I) is None, path.name
+        # CSP style-src 'self': ein Inline-style-Attribut wird im Browser still
+        # verworfen (Abstände weg, Balken ohne Breite) — live gesehen 09/2026.
+        assert 'style="' not in text, f"{path.name}: Inline-Style"

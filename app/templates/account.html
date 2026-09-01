@@ -6,16 +6,16 @@
 <h1>{{ t('account.title') }}</h1>
 
 {% if not current_instance %}
-<p class="signin" style="margin-top:16px">{{ t('common.signin_hint') }}</p>
+<p class="signin mt-16">{{ t('common.signin_hint') }}</p>
 {% else %}
-{% if request.query_params.get('ok') %}<div class="form-success narrow" style="margin-top:16px">{{ t('common.saved') }}</div>{% endif %}
-<form class="card form-card" method="post" action="/account" style="margin-top:16px">
+{% if request.query_params.get('ok') %}<div class="form-success narrow mt-16">{{ t('common.saved') }}</div>{% endif %}
+<form class="card form-card mt-16" method="post" action="/account">
   {% if instance.avatar_data %}<img class="avatar" src="data:image/webp;base64,{{ instance.avatar_data }}" alt="" />{% endif %}
   <label class="field"><span class="field__label">{{ t('account.name') }}</span>
     <input class="field__input" type="text" name="chosen_name" maxlength="40" value="{{ instance.chosen_name or '' }}" placeholder="{{ instance.display_name }}" />
     <span class="field__hint">{{ t('account.name_hint', suffix=current_instance.suffix) }}</span></label>
-  <dl class="kv" style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:0">
-    <dt class="muted">{{ t('account.instance') }}</dt><dd class="mono" style="margin:0;word-break:break-all">{{ instance.uuid }}</dd>
+  <dl class="kv kv-grid">
+    <dt class="muted">{{ t('account.instance') }}</dt><dd class="mono kv-dd">{{ instance.uuid }}</dd>
   </dl>
   <div class="form-actions"><button class="btn" type="submit">{{ t('common.save') }}</button></div>
 </form>

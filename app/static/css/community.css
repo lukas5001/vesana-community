@@ -379,3 +379,12 @@ a.tag:hover{color:var(--brand-2);border-color:var(--brand-2)}
 .gate h1{font-size:clamp(1.6rem,3vw,2.2rem)}
 .gate .lede{margin:0}
 .gate .sbox{margin-top:6px}
+
+/* ---- Hilfsklassen statt Inline-Styles (CSP: style-src 'self') ------------- */
+.sprite{position:absolute;width:0;height:0}
+.mt-10{margin-top:10px}.mt-12{margin-top:12px}.mt-14{margin-top:14px}.mt-16{margin-top:16px}.mt-20{margin-top:20px}
+.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}
+.mw-760{max-width:760px}
+.ta-r{text-align:right}
+.kv-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:0}
+.kv-dd{margin:0;word-break:break-all}
