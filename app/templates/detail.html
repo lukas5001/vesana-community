@@ -1,182 +1,163 @@
 {% extends "base.html" %}
 
-{% block title %}{{ profile.name }} &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ profile.name }} · Vesana Community{% endblock %}
 
 {% block content %}
-<p class="breadcrumb"><a href="/browse">{{ t('common.back_to_browse') }}</a></p>
+<nav class="path" aria-label="{{ t('nav.path') }}">
+  <a href="/">{{ t('nav.profiles') }}</a>
+  {% if profile.category %}<i>/</i><a href="/?category={{ profile.category }}">{{ lbl('cat', profile.category) }}</a>{% endif %}
+  <i>/</i><b>{{ profile.name }}</b>
+</nav>
 
-{% if request.query_params.get('uploaded') %}
-<div class="form-success">{{ t('detail.uploaded_ok') }}</div>
-{% endif %}
+{% if request.query_params.get('uploaded') %}<div class="form-success">{{ t('detail.uploaded_ok') }}</div>{% endif %}
 
-<div class="detail-head">
-    <span class="detail-icon">{{ profile.icon or '📦' }}</span>
-    <div class="detail-head-text">
-        <div class="detail-title-row">
-            <h1>{{ profile.name }}</h1>
-            <span class="tier-badge tier-{{ profile.tier }}">{{ profile.tier }}</span>
-            {% if profile.review_status == 'pending' %}<span class="status-badge status-pending">{{ t('detail.in_review') }}</span>{% endif %}
+<div class="phead">
+  {% with p=tile, tile_class='tile--lg' %}{% include "_tile.html" %}{% endwith %}
+  <div>
+    <h1>{{ profile.name }}</h1>
+    <div class="meta">
+      {% if profile.vendor %}<span>{{ profile.vendor }}</span><span class="dot">·</span>{% endif %}
+      {% if profile.category %}<span>{{ lbl('cat', profile.category) }}</span><span class="dot">·</span>{% endif %}
+      <span class="tier tier-{{ profile.tier }}">{{ profile.tier }}</span>
+      {% if profile.review_status == 'pending' %}<span class="badge badge--pending">{{ t('detail.in_review') }}</span>{% endif %}
+      {% if latest_version_tag %}<span class="dot">·</span><span class="num">{{ latest_version_tag }}</span>{% endif %}
+      <span class="dot">·</span><span>{{ t('detail.updated') }} <span class="num">{{ updated }}</span></span>
+      <span class="dot">·</span><span>{{ t('detail.by') }} {{ uploader }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="playout">
+  <div>
+    <nav class="tabs" role="tablist">
+      <a href="?tab=checks" role="tab" data-tab-link="checks" aria-selected="true">{{ t('detail.tab_checks') }}<span class="num">{{ check_count }}</span></a>
+      <a href="?tab=versions" role="tab" data-tab-link="versions" aria-selected="false">{{ t('detail.tab_versions') }}<span class="num">{{ versions | length }}</span></a>
+      <a href="?tab=comments" role="tab" data-tab-link="comments" aria-selected="false">{{ t('detail.tab_comments') }}<span class="num">{{ comment_count }}</span></a>
+      <a href="?tab=questions" role="tab" data-tab-link="questions" aria-selected="false">{{ t('detail.tab_questions') }}<span class="num">{{ related_questions | length }}</span></a>
+    </nav>
+
+    <section class="tab" data-tab="checks">
+      {% if check_groups %}
+        {% for label, checks in check_groups %}
+        <div class="cgroup">
+          <h3><span>{{ label }}</span><span class="num">{{ checks | length }}</span></h3>
+          {% for c in checks %}
+          <details class="check">
+            <summary>
+              <span class="cn">{{ c.name }}</span>
+              <span class="ct">{{ c.check_type }} <svg class="chev"><use href="#i-chev"/></svg></span>
+              {% if c.description %}<span class="cd">{{ c.description }}</span>{% endif %}
+            </summary>
+            {% if c.settings %}
+            <dl class="params">{% for s in c.settings %}<dt>{{ s.key }}</dt><dd>{{ s.value }}</dd>{% endfor %}</dl>
+            {% else %}<p class="noparams">{{ t('detail.settings_none') }}</p>{% endif %}
+          </details>
+          {% endfor %}
         </div>
-        {% if profile.vendor %}<div class="detail-vendor">{{ profile.vendor }}</div>{% endif %}
-        <div class="detail-meta">
-            <span>{{ t('detail.by') }} {{ uploader }}</span>
-            {% if profile.category %}<span>&middot; {{ profile.category }}</span>{% endif %}
-            {% if latest_version_tag %}<span>&middot; v{{ latest_version_tag }}</span>{% endif %}
-        </div>
-    </div>
-</div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">{{ t('detail.no_checks') }}</p>
+      {% endif %}
+      <h2>{{ t('detail.description') }}</h2>
+      <div class="prose">{% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">{{ t('detail.no_description') }}</p>{% endif %}</div>
+      {% if profile.tags %}<div class="tags" style="margin-top:12px">{% for tag in profile.tags %}<a class="tag" href="/?q={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
+    </section>
 
-<div class="detail-stats">
-    <div class="stat"><span class="stat-num">{{ profile.import_count }}</span><span class="stat-label">{{ t('browse.stat_imports') }}</span></div>
-    <div class="stat"><span class="stat-num">{{ profile.download_count }}</span><span class="stat-label">{{ t('browse.stat_downloads') }}</span></div>
-    <div class="stat"><span class="stat-num">{{ profile.vote_score }}</span><span class="stat-label">{{ t('browse.stat_score') }}</span></div>
-    {% if current_instance %}
-    <div class="vote-actions">
-        <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
-            <input type="hidden" name="value" value="1" />
-            <button class="vote-btn" type="submit" title="{{ t('detail.upvote') }}">&#9650;</button>
-        </form>
-        <form method="post" action="/p/{{ profile.id }}/vote" class="vote-form">
-            <input type="hidden" name="value" value="-1" />
-            <button class="vote-btn" type="submit" title="{{ t('detail.downvote') }}">&#9660;</button>
-        </form>
-    </div>
-    {% endif %}
-</div>
-
-<div class="detail-actions">
-    <a class="btn" href="/p/{{ profile.id }}/download">⤓ {{ t('detail.download') }}</a>
-    <span class="detail-actions__hint">{{ t('detail.download_hint') }}</span>
-</div>
-
-<section class="detail-section">
-    <h2>{{ t('detail.description') }}</h2>
-    <div class="markdown-body">
-        {% if profile.description_md %}{{ profile.description_md | markdown_safe }}{% else %}<p class="muted">{{ t('detail.no_description') }}</p>{% endif %}
-    </div>
-</section>
-
-<section class="detail-section">
-    <h2>{{ t('detail.compatibility') }}</h2>
-    <ul class="compat-list">
-        <li>{{ t('detail.min_version') }}: <strong>{{ profile.vesana_min_version or t('common.any') }}</strong></li>
-        <li>{{ t('detail.requires_agent') }}: <strong>{{ t('common.yes') if profile.requires_agent else t('common.no') }}</strong></li>
-        <li>{{ t('detail.requires_collector') }}: <strong>{{ t('common.yes') if profile.requires_collector else t('common.no') }}</strong></li>
-        <li>{{ t('detail.requires_snmp') }}: <strong>{{ t('common.yes') if profile.requires_snmp else t('common.no') }}</strong></li>
-    </ul>
-</section>
-
-<section class="detail-section">
-    <h2>{{ t('detail.checks') }} ({{ check_preview | length }})</h2>
-    <p class="muted check-intro">{{ t('detail.checks_intro') }}</p>
-    {% if check_preview %}
-    <ul class="check-list">
-        {% for check in check_preview %}
-        <li class="check-item">
-            <div class="check-item__head">
-                <span class="check-name">{{ check.name }}</span>
-                <span class="check-type">{{ check.check_type }}</span>
-            </div>
-            {% if check.description %}<p class="check-desc">{{ check.description }}</p>{% endif %}
-            {% if check.settings %}
-            <dl class="check-params">
-                {% for s in check.settings %}
-                <div class="check-params__row"><dt>{{ s.key }}</dt><dd>{{ s.value }}</dd></div>
-                {% endfor %}
-            </dl>
-            {% endif %}
+    <section class="tab" data-tab="versions" hidden>
+      {% if versions %}
+      <ul class="vers">
+        {% for v in versions %}
+        <li>
+          <span class="vt">{{ v.version_tag }}{% if v.is_current %}<span class="tier tier-official">{{ t('detail.current') }}</span>{% endif %}</span>
+          <span class="vd">{{ v.date }}</span>
+          <span class="vc">{% if v.changelog_md %}{{ v.changelog_md | markdown_safe }}{% else %}<span class="muted">—</span>{% endif %}</span>
         </li>
         {% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">{{ t('detail.no_checks') }}</p>
-    {% endif %}
-</section>
+      </ul>
+      {% else %}<p class="muted">{{ t('detail.versions_none') }}</p>{% endif %}
+    </section>
 
-{% if profile.tags %}
-<section class="detail-section">
-    <h2>{{ t('detail.tags') }}</h2>
-    <div class="card-tags">
-        {% for tag in profile.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
-    </div>
-</section>
-{% endif %}
-
-{% if current_version and current_version.changelog_md %}
-<section class="detail-section">
-    <h2>{{ t('detail.changelog') }} (v{{ current_version.version_tag }})</h2>
-    <div class="markdown-body">{{ current_version.changelog_md | markdown_safe }}</div>
-</section>
-{% endif %}
-
-<section class="detail-section comments-section" id="comments">
-    <h2>{{ t('detail.comments') }} ({{ comment_threads | length }})</h2>
-    {% if current_instance %}
-    <form class="comment-form" method="post" action="/p/{{ profile.id }}/comment">
+    <section class="tab" data-tab="comments" hidden id="comments">
+      {% if current_instance %}
+      <form class="cform" method="post" action="/p/{{ profile.id }}/comment">
         <textarea class="field__input" name="body_md" rows="3" placeholder="{{ t('detail.comment_ph') }}" required></textarea>
         <div class="form-actions"><button class="btn" type="submit">{{ t('detail.comment_btn') }}</button></div>
-    </form>
-    {% else %}
-    <p class="muted">{{ t('detail.comment_signin') }}</p>
-    {% endif %}
-    {% if not comment_threads %}
-    <p class="muted">{{ t('detail.no_comments') }}</p>
-    {% endif %}
-    <ul class="comment-list">
-        {% for thread in comment_threads %}
-        {% set c = thread.comment %}
-        <li class="comment{% if c.is_helpful %} comment-helpful{% endif %}">
-            <div class="comment-head">
-                <span class="comment-author">{{ c.author_display }}</span>
-                {% if c.is_helpful %}<span class="helpful-badge">{{ t('detail.helpful') }}</span>{% endif %}
-                <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ c.vote_score }}</span>
-            </div>
-            <div class="comment-body markdown-body">
-                {% if c.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ c.body_md | markdown_safe }}{% endif %}
-            </div>
-            {% if thread.replies %}
-            <ul class="reply-list">
-                {% for r in thread.replies %}
-                <li class="comment reply{% if r.is_helpful %} comment-helpful{% endif %}">
-                    <div class="comment-head">
-                        <span class="comment-author">{{ r.author_display }}</span>
-                        {% if r.is_helpful %}<span class="helpful-badge">{{ t('detail.helpful') }}</span>{% endif %}
-                        <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ r.vote_score }}</span>
-                    </div>
-                    <div class="comment-body markdown-body">
-                        {% if r.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ r.body_md | markdown_safe }}{% endif %}
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-            {% endif %}
+      </form>
+      {% else %}<p class="signin">{{ t('detail.comment_signin') }}</p>{% endif %}
+      {% if not comment_threads %}<p class="muted" style="margin-top:14px">{{ t('detail.no_comments') }}</p>{% endif %}
+      <ul class="clist">
+        {% for thread in comment_threads %}{% set c = thread.comment %}
+        <li class="cmt{% if c.is_helpful %} cmt--helpful{% endif %}">
+          <div class="cmt-head"><span class="au">{{ c.author_display }}</span>{% if c.is_helpful %}<span class="badge badge--ok">{{ t('detail.helpful') }}</span>{% endif %}<span class="score" title="{{ t('browse.stat_score') }}">{{ c.vote_score }}</span></div>
+          <div class="prose">{% if c.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ c.body_md | markdown_safe }}{% endif %}</div>
+          {% if thread.replies %}
+          <ul class="replies">
+            {% for r in thread.replies %}
+            <li class="cmt{% if r.is_helpful %} cmt--helpful{% endif %}">
+              <div class="cmt-head"><span class="au">{{ r.author_display }}</span>{% if r.is_helpful %}<span class="badge badge--ok">{{ t('detail.helpful') }}</span>{% endif %}<span class="score">{{ r.vote_score }}</span></div>
+              <div class="prose">{% if r.body_md is none %}<em class="muted">{{ t('detail.removed') }}</em>{% else %}{{ r.body_md | markdown_safe }}{% endif %}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
         </li>
         {% endfor %}
-    </ul>
-</section>
+      </ul>
+    </section>
 
-<section class="detail-section related-questions-section">
-    <h2>{{ t('detail.related_questions') }} ({{ related_questions | length }})</h2>
-    {% if not related_questions %}
-    <p class="muted">{{ t('detail.no_related') }}</p>
-    {% else %}
-    <ul class="question-list">
+    <section class="tab" data-tab="questions" hidden>
+      {% if not related_questions %}<p class="muted">{{ t('detail.no_related') }}</p>
+      {% else %}
+      <ul class="qlist">
         {% for q in related_questions %}
-        <li class="question-row">
-            <div class="question-row__stats">
-                <span class="vote-pill" title="{{ t('browse.stat_score') }}">{{ q.vote_score }}</span>
-                <span class="answer-count" title="{{ t('qa.answers', count=q.answer_count) }}">{{ q.answer_count }} {{ t('detail.answers_short') }}</span>
-            </div>
-            <div class="question-row__body">
-                <a class="question-title" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
-                <div class="question-row__meta">
-                    {% if q.is_vesana_team %}<span class="vesana-team-badge">{{ t('qa.team') }}</span>{% endif %}
-                    {% if q.is_closed %}<span class="closed-badge">{{ t('qa.closed') }}</span>{% endif %}
-                </div>
-            </div>
+        <li class="qrow">
+          <div class="qs"><b>{{ q.vote_score }}</b><span class="ans">{{ q.answer_count }} {{ t('detail.answers_short') }}</span></div>
+          <div><a class="qt" href="/questions/{{ q.id }}">{{ q.title_text }}</a>
+            <div class="qm">{% if q.is_vesana_team %}<span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}{% if q.is_closed %}<span class="badge badge--closed">{{ t('qa.closed') }}</span>{% endif %}</div></div>
         </li>
         {% endfor %}
-    </ul>
-    {% endif %}
-</section>
+      </ul>
+      {% endif %}
+      {% if current_instance %}<p style="margin-top:14px"><a class="btn btn--ghost btn--sm" href="/questions/ask?profile_id={{ profile.id }}">{{ t('qa.ask') }}</a></p>{% endif %}
+    </section>
+  </div>
+
+  <aside class="pside">
+    <div class="sbox">
+      <h3>{{ t('detail.install') }}</h3>
+      <ol class="steps">
+        <li>{{ t('detail.install_1') }}</li>
+        <li>{{ t('detail.install_2') }}</li>
+        <li>{{ t('detail.install_3') }}</li>
+      </ol>
+      <a class="btn btn--ghost btn--sm" href="/p/{{ profile.id }}/download"><svg><use href="#i-dl"/></svg>{{ t('detail.download') }}</a>
+      <p class="muted">{{ t('detail.download_hint') }}</p>
+    </div>
+    <div class="sbox">
+      <h3>{{ t('detail.requirements') }}</h3>
+      {% if reqs %}<div class="req">{% for r in reqs %}<span>{{ r }}</span>{% endfor %}</div>{% else %}<p>{{ t('detail.none_required') }}</p>{% endif %}
+      <dl class="kv">
+        <dt>{{ t('detail.min_version') }}</dt><dd class="num">{{ profile.vesana_min_version or t('common.any') }}</dd>
+        {% if profile.has_scripts %}<dt>{{ t('detail.scripts') }}</dt><dd>{{ t('detail.scripts_included') }}</dd>{% endif %}
+      </dl>
+    </div>
+    <div class="sbox">
+      <h3>{{ t('detail.numbers') }}</h3>
+      <dl class="kv">
+        <dt>{{ t('detail.downloads') }}</dt><dd class="num">{{ profile.download_count }}</dd>
+        <dt>{{ t('detail.score') }}</dt>
+        <dd>
+          {% if current_instance %}
+          <span class="vote">
+            <form method="post" action="/p/{{ profile.id }}/vote"><input type="hidden" name="value" value="1" /><button type="submit" title="{{ t('detail.upvote') }}" aria-label="{{ t('detail.upvote') }}"><svg><use href="#i-up"/></svg></button></form>
+            <b>{{ profile.vote_score }}</b>
+            <form method="post" action="/p/{{ profile.id }}/vote"><input type="hidden" name="value" value="-1" /><button type="submit" title="{{ t('detail.downvote') }}" aria-label="{{ t('detail.downvote') }}"><svg><use href="#i-down"/></svg></button></form>
+          </span>
+          {% else %}<span class="num">{{ profile.vote_score }}</span>{% endif %}
+        </dd>
+        <dt>{{ t('detail.updated') }}</dt><dd class="num">{{ updated }}</dd>
+      </dl>
+    </div>
+  </aside>
+</div>
 {% endblock %}

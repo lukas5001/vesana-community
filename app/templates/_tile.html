@@ -1,0 +1,3 @@
+{# Icon-Kachel eines Profils: Hersteller-Logo aus der Icon-Bibliothek, sonst
+   eigenes Kategorie-Symbol. Erwartet `p` mit .logo (Slug|None) und .icon_slug. #}
+{% if p.logo %}<span class="tile tile--logo {{ tile_class or '' }}"><img src="/api/v1/icon-library/{{ p.logo }}/file" alt="" loading="lazy" width="36" height="36" /></span>{% else %}<span class="tile {{ tile_class or '' }}"><svg class="ico"><use href="#i-{{ p.icon_slug }}"/></svg></span>{% endif %}

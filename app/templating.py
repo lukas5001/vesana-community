@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.requests import Request
 
-from app.i18n import DEFAULT_LANG, LANGUAGES, normalize_lang, translate
+from app.i18n import DEFAULT_LANG, LANGUAGES, label, normalize_lang, translate
 from app.identity import is_real_name, public_name
 from app.version import VERSION
 
@@ -57,12 +58,29 @@ def _global_context(request: Request) -> dict:
     def t(key: str, **kwargs) -> str:
         return translate(lang, key, **kwargs)
 
+    def lbl(prefix: str, value: str | None) -> str:
+        """Label for an enum-ish value (category, sort, filter) — falls back to the value."""
+        return label(lang, prefix, value)
+
+    def href(**overrides) -> str:
+        """Current URL with some query params replaced (None removes the param)."""
+        params = dict(request.query_params)
+        for key, value in overrides.items():
+            if value is None or value == "":
+                params.pop(key, None)
+            else:
+                params[key] = str(value)
+        query = urlencode(params)
+        return request.url.path + (f"?{query}" if query else "")
+
     return {
         "version": VERSION,
         "current_instance": current_instance,
         "lang": lang,
         "languages": LANGUAGES,
         "t": t,
+        "lbl": lbl,
+        "href": href,
     }
 
 

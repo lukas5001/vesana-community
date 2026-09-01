@@ -1,35 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('upload.title') }} &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('upload.title') }} · Vesana Community{% endblock %}
 
 {% block content %}
+<nav class="path" aria-label="{{ t('nav.path') }}"><a href="/">{{ t('nav.profiles') }}</a><i>/</i><b>{{ t('upload.title') }}</b></nav>
 <h1>{{ t('upload.title') }}</h1>
 <p class="lede">{{ t('upload.lede') }}</p>
 
 {% if not current_instance %}
-<div class="card"><p>{{ t('upload.signin') }}</p></div>
+<p class="signin">{{ t('upload.signin') }}</p>
 {% else %}
-
-{% if error %}<div class="form-error">{{ error }}</div>{% endif %}
-
-<form class="card upload-form" method="post" action="/upload" enctype="multipart/form-data">
-  <label class="field">
-    <span class="field__label">{{ t('upload.file') }}</span>
+{% if error %}<div class="form-error narrow">{{ error }}</div>{% endif %}
+<form class="card form-card" method="post" action="/upload" enctype="multipart/form-data">
+  <label class="field"><span class="field__label">{{ t('upload.file') }}</span>
     <input class="field__input" type="file" name="bundle" accept=".json,application/json" required />
-    <span class="field__hint">{{ t('upload.file_hint') }}</span>
-  </label>
-  <label class="field">
-    <span class="field__label">{{ t('upload.version') }}</span>
+    <span class="field__hint">{{ t('upload.file_hint') }}</span></label>
+  <label class="field"><span class="field__label">{{ t('upload.version') }}</span>
     <input class="field__input" type="text" name="version_tag" value="{{ version_tag or '' }}" placeholder="v1" />
-    <span class="field__hint">{{ t('upload.version_hint') }}</span>
-  </label>
-  <label class="field">
-    <span class="field__label">{{ t('upload.changelog') }}</span>
-    <textarea class="field__input" name="changelog_md" rows="4" placeholder="{{ t('upload.changelog_ph') }}">{{ changelog_md or '' }}</textarea>
-  </label>
-  <div class="form-actions">
-    <button class="btn" type="submit">{{ t('upload.btn') }}</button>
-  </div>
+    <span class="field__hint">{{ t('upload.version_hint') }}</span></label>
+  <label class="field"><span class="field__label">{{ t('upload.changelog') }}</span>
+    <textarea class="field__input" name="changelog_md" rows="4" placeholder="{{ t('upload.changelog_ph') }}">{{ changelog_md or '' }}</textarea></label>
+  <div class="form-actions"><button class="btn" type="submit">{{ t('upload.btn') }}</button></div>
 </form>
 {% endif %}
 {% endblock %}

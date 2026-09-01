@@ -1,81 +1,104 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('browse.title') }} &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('reg.title') }} · Vesana Community{% endblock %}
 
 {% block content %}
-<h1>{{ t('browse.title') }}</h1>
-<p class="lede">{{ t('browse.lede') }}</p>
+<div class="lead">
+  <div>
+    <p class="eyebrow">{{ t('reg.eyebrow') }}</p>
+    <h1>{{ t('reg.title') }}</h1>
+  </div>
+  <div class="cnt"><b>{{ total_all }}</b>{{ t('reg.entries') }} · {{ categories | length }} {{ t('reg.categories') }}</div>
+</div>
 
-<form class="filters" method="get" action="/browse" data-browse-filters>
-    <div class="filters-row filters-row--search">
-        <div class="search-wrap">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input class="search-box" type="search" name="q" value="{{ q }}"
-                   placeholder="{{ t('browse.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
-        </div>
-        <select class="select" name="sort" aria-label="{{ t('common.sort') }}">
-            {% for option in sort_options %}
-            <option value="{{ option }}" {% if option == active_sort %}selected{% endif %}>{{ option | capitalize }}</option>
-            {% endfor %}
-        </select>
-        {% if categories %}
-        <select class="select" name="category" aria-label="{{ t('browse.category') }}">
-            <option value="">{{ t('browse.category') }}: {{ t('common.all') }}</option>
-            {% for c in categories %}<option value="{{ c }}" {% if active_category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select>
-        {% endif %}
-        {% if vendors %}
-        <select class="select" name="vendor" aria-label="{{ t('browse.vendor') }}">
-            <option value="">{{ t('browse.vendor') }}: {{ t('common.all') }}</option>
-            {% for v in vendors %}<option value="{{ v }}" {% if active_vendor == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
-        </select>
-        {% endif %}
-        <noscript><button class="btn" type="submit">{{ t('common.search') }}</button></noscript>
-    </div>
-
-    <div class="filters-row chips">
-        <span class="chip-label">{{ t('browse.tier') }}</span>
-        <a class="chip {% if not active_tier %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}sort={{ active_sort }}">{{ t('common.all') }}</a>
-        {% for tr in ['official', 'beta', 'community'] %}
-        <a class="chip chip-tier-{{ tr }} {% if active_tier == tr %}chip-active{% endif %}"
-           href="/browse?{% if q %}q={{ q }}&{% endif %}tier={{ tr }}&sort={{ active_sort }}">{{ tr }}</a>
-        {% endfor %}
-        {% if active_tier or active_category or active_vendor or q %}
-        <a class="chip-clear" href="/browse">{{ t('common.clear') }}</a>
-        {% endif %}
-    </div>
+<form class="tools-wrap" method="get" action="/" data-tools>
+  <div class="tools">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ t('reg.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+    </label>
+    <span class="sel"><span class="sel-l">{{ t('browse.category') }}</span>
+      <select name="category" aria-label="{{ t('browse.category') }}">
+        <option value="">{{ t('common.all') }}</option>
+        {% for c in categories %}<option value="{{ c }}" {% if active_category == c %}selected{% endif %}>{{ lbl('cat', c) }}{% if counts.category.get(c) %} ({{ counts.category[c] }}){% endif %}</option>{% endfor %}
+      </select><svg><use href="#i-chev"/></svg></span>
+    <span class="sel"><span class="sel-l">{{ t('browse.vendor') }}</span>
+      <select name="vendor" aria-label="{{ t('browse.vendor') }}">
+        <option value="">{{ t('common.all') }}</option>
+        {% for v in vendors %}<option value="{{ v }}" {% if active_vendor == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select><svg><use href="#i-chev"/></svg></span>
+    <span class="sel"><span class="sel-l">{{ t('reg.sort') }}</span>
+      <select name="sort" aria-label="{{ t('reg.sort') }}">
+        {% for o in sort_options %}<option value="{{ o }}" {% if o == active_sort %}selected{% endif %}>{{ lbl('sort', o) }}</option>{% endfor %}
+      </select><svg><use href="#i-chev"/></svg></span>
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+    {% if view == 'rows' %}<input type="hidden" name="view" value="rows" />{% elif view == 'cards' %}<input type="hidden" name="view" value="cards" />{% endif %}
+  </div>
+  <div class="chips">
+    {% for tr in ['official', 'beta', 'community'] %}
+    <a class="chip {% if active_tier == tr %}on{% endif %}" href="{{ href(tier=(none if active_tier == tr else tr)) }}" title="{{ counts.tier.get(tr, 0) }}">{{ tr }}</a>
+    {% endfor %}
+    <span class="sep">|</span>
+    {% for rk in req_keys %}
+    <a class="chip {% if active_req == rk %}on{% endif %}" href="{{ href(req=(none if active_req == rk else rk)) }}" title="{{ counts.req.get(rk, 0) }}">{{ t('reg.req_' ~ rk) }}</a>
+    {% endfor %}
+    {% if active_tier or active_req or active_category or active_vendor or q %}
+    <a class="chip chip--x" href="/{% if view %}?view={{ view }}{% endif %}">{{ t('common.clear') }}</a>
+    {% endif %}
+    <span class="sp"></span>
+    <span class="view" role="group" aria-label="{{ t('reg.view') }}">
+      <a class="{% if view != 'cards' %}on{% endif %}" href="{{ href(view='rows') }}" title="{{ t('reg.view_rows') }}" aria-label="{{ t('reg.view_rows') }}"><svg><use href="#i-rows"/></svg></a>
+      <a class="{% if view == 'cards' %}on{% endif %}" href="{{ href(view='cards') }}" title="{{ t('reg.view_cards') }}" aria-label="{{ t('reg.view_cards') }}"><svg><use href="#i-grid"/></svg></a>
+    </span>
+  </div>
 </form>
 
-<div id="browse-results" data-results>
-<p class="result-count">{{ t('browse.count', count=total) }}</p>
-
-{% if profiles %}
-<div class="profile-grid">
-    {% for p in profiles %}
-    <a class="profile-card" href="/p/{{ p.id }}">
-        <div class="card-head">
-            <span class="card-icon">{{ p.icon or '📦' }}</span>
-            <span class="tier-badge tier-{{ p.tier }}">{{ p.tier }}</span>
-        </div>
-        <h3 class="card-name">{{ p.name }}</h3>
-        {% if p.vendor %}<div class="card-vendor">{{ p.vendor }}</div>{% endif %}
-        <div class="card-stats">
-            <span title="{{ t('browse.stat_imports') }}">⤓ {{ p.import_count }}</span>
-            <span title="{{ t('browse.stat_downloads') }}">↓ {{ p.download_count }}</span>
-            <span title="{{ t('browse.stat_score') }}">★ {{ p.vote_score }}</span>
-        </div>
-        {% if p.tags %}
-        <div class="card-tags">
-            {% for tag in p.tags[:4] %}<span class="tag">{{ tag }}</span>{% endfor %}
-        </div>
-        {% endif %}
-    </a>
-    {% endfor %}
+<div data-results>
+{% if not profiles %}
+<p class="empty">{{ t('browse.empty') }}</p>
+{% elif view == 'cards' %}
+<div class="cards">
+  {% for p in profiles %}
+  <a class="pcard" href="/p/{{ p.id }}">
+    <div class="chead">
+      {% include "_tile.html" %}
+      <span><h3>{{ p.name }}</h3><div class="vd">{{ p.vendor or '—' }} · {{ lbl('cat', p.category) }}</div></span>
+      <span class="tier tier-{{ p.tier }}">{{ p.tier }}</span>
+    </div>
+    {% if p.reqs %}<div class="req">{% for r in p.reqs %}<span>{{ r }}</span>{% endfor %}</div>{% endif %}
+    <div class="row"><span><b>{{ p.download_count }}</b> {{ t('browse.stat_downloads') }}</span><span>{% if p.version_tag %}{{ p.version_tag }} · {% endif %}{{ p.updated }}</span></div>
+  </a>
+  {% endfor %}
 </div>
+<p class="reg-foot"><span>{{ t('reg.count', n=profiles|length, total=total) }}</span></p>
 {% else %}
-<p class="empty-state">{{ t('browse.empty') }}</p>
+<div class="reg-wrap">
+<table class="reg">
+  <thead><tr>
+    <th></th>
+    <th>{{ t('reg.col_profile') }}</th>
+    <th>{{ t('reg.col_tier') }}</th>
+    <th>{{ t('reg.col_req') }}</th>
+    <th>{{ t('reg.col_version') }}</th>
+    <th style="text-align:right">{{ t('reg.col_downloads') }}</th>
+    <th></th>
+  </tr></thead>
+  <tbody>
+  {% for p in profiles %}
+    <tr>
+      <td class="ic">{% include "_tile.html" %}</td>
+      <td><a class="nm" href="/p/{{ p.id }}">{{ p.name }}</a><div class="vd">{{ p.vendor or '—' }} · {{ lbl('cat', p.category) }}{% if p.review_status == 'pending' %} · <span class="badge badge--pending">{{ t('detail.in_review') }}</span>{% endif %}</div></td>
+      <td class="tier-cell"><span class="tier tier-{{ p.tier }}">{{ p.tier }}</span></td>
+      <td class="req-cell">{% if p.reqs %}<span class="req">{% for r in p.reqs %}<span>{{ r }}</span>{% endfor %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="ver mono">{% if p.version_tag %}{{ p.version_tag }} · {% endif %}{{ p.updated }}</td>
+      <td class="r num">{{ p.download_count }}</td>
+      <td class="go"><a href="/p/{{ p.id }}" aria-label="{{ p.name }}">→</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="reg-foot"><span>{{ t('reg.count', n=profiles|length, total=total) }}</span></p>
 {% endif %}
 </div>
-
 {% endblock %}

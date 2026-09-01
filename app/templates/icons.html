@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('icons.title') }} · Vesana Community{% endblock %}
+
+{% block content %}
+<div class="lead">
+  <div><p class="eyebrow">{{ t('icons.eyebrow') }}</p><h1>{{ t('icons.title') }}</h1></div>
+  <div class="cnt"><b>{{ total_all }}</b>{{ t('icons.entries') }}</div>
+</div>
+<p class="lede">{{ t('icons.lede') }}</p>
+
+<form method="get" action="/icons" data-tools>
+  <div class="tools">
+    <label class="search"><svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ t('icons.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+</form>
+
+<div data-results>
+{% if icons %}
+<div class="igrid">
+  {% for i in icons %}
+  <div class="icard">
+    <span class="tile tile--logo"><img src="/api/v1/icon-library/{{ i.slug }}/file" alt="" loading="lazy" width="48" height="48" /></span>
+    <span class="slug">{{ i.slug }}</span>
+    <span class="src">{{ i.source }}</span>
+    <button type="button" data-copy="{{ i.slug }}" data-copied="{{ t('icons.copied') }}">{{ t('icons.copy') }}</button>
+  </div>
+  {% endfor %}
+</div>
+<p class="reg-foot"><span>{{ t('reg.count', n=icons|length, total=total) }}</span>{% if total > icons|length %}<span>{{ t('icons.refine') }}</span>{% endif %}</p>
+{% else %}
+<p class="empty">{{ t('icons.empty') }}</p>
+{% endif %}
+</div>
+{% endblock %}
