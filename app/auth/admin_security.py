@@ -118,7 +118,10 @@ def qr_svg(data: str) -> Markup:
     qr = segno.make(data, error="m")
     # Feste Ink-Farbe auf der cremefarbenen Kachel — ein QR-Code muss in JEDEM
     # Theme dunkel auf hell sein, sonst liest ihn keine Kamera.
-    svg = qr.svg_inline(scale=4, border=2, dark="#1F1419", light=None, svgclass="qr")
+    # ``omitsize``: KEINE festen width/height, sondern eine viewBox. Mit festen
+    # Maßen skaliert CSS nur den Rahmen, nicht den Pfad — der Code wurde
+    # abgeschnitten und war für keine App lesbar (Lukas, 09/2026).
+    svg = qr.svg_inline(scale=4, border=3, dark="#1F1419", light=None, svgclass="qr", omitsize=True)
     return Markup(svg)
 
 

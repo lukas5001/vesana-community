@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.1 — 2FA-QR-Code war nicht scannbar
+
+- Das QR-SVG kam mit festen `width`/`height` ohne `viewBox`; das CSS zwang es
+  auf 220 px, der Pfad blieb bei 244 Einheiten und wurde abgeschnitten — kein
+  Finder-Muster, keine App konnte ihn lesen. Jetzt `omitsize=True` (viewBox),
+  der Code skaliert mit dem Rahmen.
+- Anker: `test_qr_svg_rendered_at_css_size_is_decodable` rastert das SVG in
+  der Template-Größe und dekodiert es (zxing-cpp + cairosvg, skippt ohne).
+
 ## 0.11.0 — Admin-Portal: Neubau + zweiter Faktor
 
 Der Admin-Bereich ist komplett neu — eigene Shell im Vesana-Design (Seitenleiste
