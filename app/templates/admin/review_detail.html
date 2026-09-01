@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ profile.name }} · {{ t('admin.nav.review') }}{% endblock %}
+{% block crumbs %}<i>/</i><a href="/admin/review">{{ t('admin.nav.review') }}</a><i>/</i><b>{{ profile.name }}</b>{% endblock %}
+
+{% block content %}
+{% set next_url = '/admin/review/' ~ profile.id %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.review.inspect') }} · <span class="badge badge--{{ profile.review_status }}">{{ profile.review_status }}</span>{% if profile.is_removed %} <span class="badge badge--closed">{{ t('admin.prof.removed') }}</span>{% endif %}</p>
+    <h1>{{ profile.name }}</h1>
+    <p class="lede">{{ profile.vendor or '—' }} · {{ lbl('cat', profile.category) }} · {{ t('detail.by') }} <a href="{% if profile.uploader_instance_uuid %}/admin/instances/{{ profile.uploader_instance_uuid }}{% else %}/admin/profiles?source=team{% endif %}">{{ uploader }}</a> · {{ profile.created_at | dt }}{% if profile.rejection_reason %} · <span class="crit">{{ t('admin.review.rejected_reason') }}: {{ profile.rejection_reason }}</span>{% endif %}</p>
+  </div>
+  <div class="ad-head-r">
+    <a class="btn btn--ghost btn--sm" href="/p/{{ profile.id }}" target="_blank" rel="noopener"><svg><use href="#a-external"/></svg>{{ t('admin.prof.public') }}</a>
+    <a class="btn btn--ghost btn--sm" href="/admin/profiles/{{ profile.id }}"><svg><use href="#a-edit"/></svg>{{ t('admin.prof.manage') }}</a>
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div>
+    <nav class="tabs" role="tablist">
+      <a href="?tab=checks" role="tab" data-tab-link="checks" aria-selected="true">{{ t('detail.tab_checks') }}<span class="num">{{ checks | length }}</span></a>
+      <a href="?tab=scripts" role="tab" data-tab-link="scripts" aria-selected="false">{{ t('admin.insp.tab_scripts') }}<span class="num">{{ scripts | length }}{% if findings %} · ⚠ {{ findings | length }}{% endif %}</span></a>
+      <a href="?tab=versions" role="tab" data-tab-link="versions" aria-selected="false">{{ t('detail.tab_versions') }}<span class="num">{{ versions | length }}</span></a>
+    </nav>
+    {% include "admin/_inspection.html" %}
+  </div>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.review.decision') }}</h3>
+      {% if profile.review_status != 'approved' %}
+      <form method="post" action="/admin/review/{{ profile.id }}/approve">{% include "admin/_csrf.html" %}
+        <button class="btn btn--ok" type="submit"><svg><use href="#a-check"/></svg>{{ t('admin.review.approve') }}</button>
+        <p class="muted">{{ t('admin.review.approve_hint') }}</p>
+      </form>
+      {% endif %}
+      {% if profile.review_status != 'rejected' %}
+      <form method="post" action="/admin/review/{{ profile.id }}/reject" class="stack">{% include "admin/_csrf.html" %}
+        <label class="field"><span class="field__label">{{ t('admin.review.reason') }}</span><textarea class="field__input" name="reason" rows="3" placeholder="{{ t('admin.review.reason_ph') }}"></textarea></label>
+        <button class="btn btn--danger" type="submit"><svg><use href="#a-x"/></svg>{{ t('admin.review.reject') }}</button>
+        <p class="muted">{{ t('admin.review.reject_hint') }}</p>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3>{{ t('admin.review.tier_direct') }}</h3>
+      <form method="post" action="/admin/profiles/{{ profile.id }}/tier" class="row">{% include "admin/_csrf.html" %}
+        <span class="sel"><select name="tier" aria-label="Tier">{% for tr in ['official', 'beta', 'community'] %}<option value="{{ tr }}" {% if profile.tier == tr %}selected{% endif %}>{{ tr }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+        <button class="btn btn--ghost btn--sm" type="submit">{{ t('admin.prof.set') }}</button>
+      </form>
+      <p class="muted">{{ t('admin.review.tier_hint') }}</p>
+    </div>
+
+    <div class="panel">
+      <h3>{{ t('admin.insp.meta') }}</h3>
+      <dl class="kv">
+        <dt>{{ t('admin.col.version') }}</dt><dd class="mono">{{ current.version_tag if current else '—' }}</dd>
+        <dt>{{ t('admin.insp.checks_n') }}</dt><dd class="mono">{{ checks | length }}</dd>
+        <dt>{{ t('admin.insp.scripts_n') }}</dt><dd class="mono">{{ scripts | length }}</dd>
+        <dt>{{ t('detail.requirements') }}</dt><dd>{% set reqs = [] %}{% for k in ['agent','collector','snmp','ssh','api_token'] %}{% if profile['requires_' ~ k] %}{% set _ = reqs.append(t('reg.req_' ~ k)) %}{% endif %}{% endfor %}{% if reqs %}<span class="req">{% for r in reqs %}<span>{{ r }}</span>{% endfor %}</span>{% else %}—{% endif %}</dd>
+        <dt>{{ t('detail.min_version') }}</dt><dd class="mono">{{ profile.vesana_min_version or t('common.any') }}</dd>
+        <dt>{{ t('admin.prof.reports_open') }}</dt><dd class="mono">{{ open_reports }}</dd>
+        <dt>ID</dt><dd class="mono small">{{ profile.id }}</dd>
+      </dl>
+      {% if bundle_meta and bundle_meta.description %}<p class="prose-sm">{{ bundle_meta.description | markdown_safe }}</p>{% endif %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.audit.eyebrow') }}</p>
+    <h1>{{ t('admin.audit.title') }}</h1>
+    <p class="lede">{{ t('admin.audit.lede') }}</p>
+  </div>
+  <div class="cnt"><b>{{ pager.total }}</b>{{ t('admin.audit.entries') }}</div>
+</div>
+
+<form class="ad-filters" method="get" action="/admin/audit" data-tools>
+  <div class="tools">
+    <label class="search"><svg><use href="#i-search"/></svg><input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.audit.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+    <span class="sel"><span class="sel-l">{{ t('admin.audit.action') }}</span>
+      <select name="action" aria-label="{{ t('admin.audit.action') }}">
+        <option value="">{{ t('common.all') }}</option>
+        {% for prefix, actions in groups %}
+        <optgroup label="{{ t('audit.group.' ~ prefix) }}">
+          <option value="{{ prefix }}.*" {% if action == prefix ~ '.*' %}selected{% endif %}>{{ t('audit.group.' ~ prefix) }} — {{ t('common.all') }}</option>
+          {% for a in actions %}<option value="{{ a }}" {% if action == a %}selected{% endif %}>{{ t('audit.' ~ a) }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select><svg><use href="#i-chev"/></svg></span>
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+</form>
+
+<div data-results>
+{% if not entries %}<p class="empty">{{ t('admin.audit.empty') }}</p>{% else %}
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr><th>{{ t('admin.audit.when') }}</th><th>{{ t('admin.audit.action') }}</th><th>{{ t('admin.audit.target') }}</th><th>{{ t('admin.audit.details') }}</th><th>{{ t('admin.audit.who') }}</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td class="mono">{{ e.created_at | dt }}</td>
+      <td><span class="badge {% if e.action.endswith('_failed') or e.action in ['profile.delete','instance.block','review.reject','report.remove','answer.delete','comment.remove'] %}badge--closed{% elif e.action.startswith('auth.') %}badge--team{% else %}badge--ok{% endif %}">{{ t('audit.' ~ e.action) }}</span></td>
+      <td>{% if e.target_type == 'profile' %}<a class="nm" href="/admin/profiles/{{ e.target_id }}">{{ e.summary or e.target_id }}</a>{% elif e.target_type == 'instance' %}<a class="nm" href="/admin/instances/{{ e.target_id }}">{{ e.summary or e.target_id }}</a>{% elif e.target_type == 'question' %}<a class="nm" href="/admin/questions/{{ e.target_id }}">{{ e.summary or e.target_id }}</a>{% else %}{{ e.summary or '—' }}{% endif %}{% if e.target_type %}<div class="vd mono">{{ e.target_type }}</div>{% endif %}</td>
+      <td class="wrap-cell small">{% if e.details %}{% for k, v in e.details.items() %}<span class="kvi"><span class="mono">{{ k }}</span> {% if v is mapping %}{{ v | tojson }}{% else %}{{ v }}{% endif %}</span>{% endfor %}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="mono small">{{ e.admin_user }}{% if e.ip %}<div class="vd">{{ e.ip }}</div>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "admin/_pager.html" %}
+{% endif %}
+</div>
+{% endblock %}

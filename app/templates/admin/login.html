@@ -4,12 +4,15 @@
 
 {% block content %}
 <div class="auth-card">
+  <p class="eyebrow">{{ t('admin.title') }}</p>
   <h1>{{ t('adminlogin.title') }}</h1>
   <p class="lede">{{ t('adminlogin.lede') }}</p>
 
-  {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="form-success">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form class="ask-form" method="post" action="/admin/login">
+    <input type="hidden" name="next" value="{{ next }}" />
     <label class="field">
       <span class="field__label">{{ t('adminlogin.user') }}</span>
       <input class="field__input" type="text" name="username" autocomplete="username" autofocus required />

@@ -1,0 +1,63 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.qa.eyebrow') }}</p>
+    <h1>{{ t('admin.qa.title') }}</h1>
+    <p class="lede">{{ t('admin.qa.lede') }}</p>
+  </div>
+  <div class="cnt"><b>{{ counts.all }}</b>{{ t('admin.qa.entries') }}</div>
+</div>
+
+<form class="ad-filters" method="get" action="/admin/questions" data-tools>
+  <div class="tools">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.qa.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+    </label>
+    {% if state %}<input type="hidden" name="state" value="{{ state }}" />{% endif %}
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+  <div class="chips">
+    <a class="chip {% if not state %}on{% endif %}" href="{{ href(state=none, page=none) }}">{{ t('common.all') }} <span class="chip__n">{{ counts.all }}</span></a>
+    {% for opt in ['open', 'unanswered', 'closed'] %}
+    <a class="chip {% if state == opt %}on{% endif %}" href="{{ href(state=opt, page=none) }}">{{ t('admin.qa.state_' ~ opt) }} <span class="chip__n">{{ counts[opt] }}</span></a>
+    {% endfor %}
+  </div>
+</form>
+
+<div data-results>
+{% if not questions %}
+<p class="empty">{{ t('admin.qa.empty') }}</p>
+{% else %}
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr>
+    <th>{{ t('admin.qa.question') }}</th>
+    <th>{{ t('admin.qa.author') }}</th>
+    <th class="r">{{ t('admin.qa.answers') }}</th>
+    <th class="r">★</th>
+    <th>{{ t('admin.col.status') }}</th>
+    <th>{{ t('admin.qa.asked') }}</th>
+    <th class="r">{{ t('admin.col.actions') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for qn in questions %}
+    <tr>
+      <td><a class="nm" href="/admin/questions/{{ qn.id }}">{{ qn.title_text }}</a><div class="vd">{% if qn.tags %}{{ qn.tags | join(' · ') }}{% endif %}{% if qn.is_vesana_team %} <span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}</div></td>
+      <td><a href="/admin/instances/{{ qn.instance_uuid }}">{{ names.get(qn.instance_uuid, '') }}</a></td>
+      <td class="r num">{{ qn.answer_count }}</td>
+      <td class="r num">{{ qn.vote_score }}</td>
+      <td>{% if qn.is_closed %}<span class="badge badge--closed">closed</span>{% elif qn.answer_count == 0 %}<span class="badge badge--pending">unanswered</span>{% else %}<span class="badge badge--ok">open</span>{% endif %}</td>
+      <td class="mono">{{ qn.created_at | d }}</td>
+      <td class="r act"><a class="btn btn--ghost btn--sm" href="/admin/questions/{{ qn.id }}">{{ t('admin.prof.manage') }}</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "admin/_pager.html" %}
+{% endif %}
+</div>
+{% endblock %}

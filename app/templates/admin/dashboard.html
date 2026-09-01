@@ -1,50 +1,128 @@
 {% extends "admin/base.html" %}
-{% block admin_title %}Übersicht{% endblock %}
 
-{% block admin_content %}
-<div class="admin-cards">
-  <div class="admin-card">
-    <span class="admin-card__label">Instanzen</span>
-    <span class="admin-card__value">{{ stats.instances_total }}</span>
-    <span class="admin-card__sub">{{ stats.instances_blocked }} geblockt</span>
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.dash.eyebrow') }}</p>
+    <h1>{{ t('admin.dash.title') }}</h1>
   </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Profile</span>
-    <span class="admin-card__value">{{ stats.profiles_total }}</span>
-    <span class="admin-card__sub">{{ stats.profiles_pending }} im Review</span>
+</div>
+
+{# ---- Was braucht mich ------------------------------------------------- #}
+<section class="ad-section">
+  <h2 class="ad-h2">{{ t('admin.dash.tasks') }}</h2>
+  <div class="tasks">
+    <a class="task {% if tasks.pending %}task--due{% endif %}" href="/admin/review">
+      <svg><use href="#a-inbox"/></svg>
+      <span class="task__n">{{ tasks.pending }}</span>
+      <span class="task__t">{{ t('admin.dash.task_review') }}</span>
+      <span class="task__go">→</span>
+    </a>
+    <a class="task {% if tasks.reports %}task--due{% endif %}" href="/admin/moderation">
+      <svg><use href="#a-flag"/></svg>
+      <span class="task__n">{{ tasks.reports }}</span>
+      <span class="task__t">{{ t('admin.dash.task_reports') }}</span>
+      <span class="task__go">→</span>
+    </a>
+    <a class="task {% if tasks.unanswered %}task--soft{% endif %}" href="/admin/questions?state=unanswered">
+      <svg><use href="#a-message"/></svg>
+      <span class="task__n">{{ tasks.unanswered }}</span>
+      <span class="task__t">{{ t('admin.dash.task_unanswered') }}</span>
+      <span class="task__go">→</span>
+    </a>
+    {% if not two_fa.enabled %}
+    <a class="task task--soft" href="/admin/security">
+      <svg><use href="#a-shield"/></svg>
+      <span class="task__n">!</span>
+      <span class="task__t">{{ t('admin.dash.task_2fa') }}</span>
+      <span class="task__go">→</span>
+    </a>
+    {% endif %}
   </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Profile nach Tier</span>
-    <span class="admin-card__value">{{ stats.profiles_by_tier.official }}</span>
-    <span class="admin-card__sub">
-      official · {{ stats.profiles_by_tier.beta }} beta ·
-      {{ stats.profiles_by_tier.community }} community
-    </span>
+</section>
+
+{# ---- Kennzahlen ------------------------------------------------------- #}
+<section class="ad-section">
+  <h2 class="ad-h2">{{ t('admin.dash.numbers') }}</h2>
+  <div class="kpis">
+    <a class="kpi" href="/admin/profiles">
+      <span class="kpi__l">{{ t('admin.nav.profiles') }}</span>
+      <span class="kpi__v">{{ stats.profiles_total }}</span>
+      <span class="kpi__s"><span class="tier tier-official">official</span> {{ stats.profiles_by_tier.official }} · <span class="tier tier-beta">beta</span> {{ stats.profiles_by_tier.beta }} · <span class="tier tier-community">community</span> {{ stats.profiles_by_tier.community }}</span>
+    </a>
+    <a class="kpi" href="/admin/instances">
+      <span class="kpi__l">{{ t('admin.nav.instances') }}</span>
+      <span class="kpi__v">{{ stats.instances_total }}</span>
+      <span class="kpi__s">{{ t('admin.dash.blocked_n', n=stats.instances_blocked) }}</span>
+    </a>
+    <div class="kpi">
+      <span class="kpi__l">{{ t('admin.dash.downloads') }}</span>
+      <span class="kpi__v">{{ stats.downloads_total }}</span>
+      <span class="kpi__s">{{ t('admin.dash.imports_n', n=stats.imports_total) }}</span>
+    </div>
+    <a class="kpi" href="/admin/questions">
+      <span class="kpi__l">{{ t('admin.nav.questions') }}</span>
+      <span class="kpi__v">{{ stats.questions_total }}</span>
+      <span class="kpi__s">{{ t('admin.dash.open_n', n=stats.questions_open) }}</span>
+    </a>
+    <div class="kpi">
+      <span class="kpi__l">{{ t('admin.dash.votes') }}</span>
+      <span class="kpi__v">{{ stats.votes_total }}</span>
+      <span class="kpi__s">{{ t('admin.dash.comments_n', n=tasks.comments_total) }}</span>
+    </div>
+    <a class="kpi" href="/admin/icons">
+      <span class="kpi__l">{{ t('admin.nav.icons') }}</span>
+      <span class="kpi__v">{{ system.icons }}</span>
+      <span class="kpi__s">{{ t('admin.dash.synced') }} {{ system.icons_synced_at | d }}</span>
+    </a>
   </div>
-  <div class="admin-card {% if stats.reports_open %}admin-card--alert{% endif %}">
-    <span class="admin-card__label">Offene Reports</span>
-    <span class="admin-card__value">{{ stats.reports_open }}</span>
-    <span class="admin-card__sub"><a href="/admin/moderation">Moderation öffnen</a></span>
-  </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Fragen</span>
-    <span class="admin-card__value">{{ stats.questions_total }}</span>
-    <span class="admin-card__sub">{{ stats.questions_open }} offen</span>
-  </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Votes</span>
-    <span class="admin-card__value">{{ stats.votes_total }}</span>
-    <span class="admin-card__sub">community-weit</span>
-  </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Downloads / Imports</span>
-    <span class="admin-card__value">{{ stats.downloads_total }}</span>
-    <span class="admin-card__sub">{{ stats.imports_total }} Imports</span>
-  </div>
-  <div class="admin-card">
-    <span class="admin-card__label">Events</span>
-    <span class="admin-card__value">{{ stats.events_total }}</span>
-    <span class="admin-card__sub">Notifications gesamt</span>
+</section>
+
+<div class="ad-cols">
+  {# ---- Aktivität ---------------------------------------------------- #}
+  <section class="ad-section">
+    <h2 class="ad-h2">{{ t('admin.dash.activity') }}</h2>
+    {% if not activity %}<p class="muted">{{ t('admin.dash.no_activity') }}</p>{% else %}
+    <ol class="stream">
+      {% for e in activity %}
+      <li class="stream__i">
+        <svg class="stream__ic stream__ic--{{ e.kind }}"><use href="#a-{{ {'upload':'upload','version':'tag','comment':'message','question':'message','answer':'message','report':'flag','joined':'users'}[e.kind] }}"/></svg>
+        <div class="stream__b">
+          <span class="stream__k">{{ t('admin.act.' ~ e.kind) }}</span>
+          <a class="stream__t" href="{{ e.href }}">{{ e.title }}</a>
+          {% if e.extra %}<span class="badge badge--{{ e.extra }}">{{ e.extra }}</span>{% endif %}
+          <span class="stream__m">{{ e.actor_name }} · {{ e.at | ago(lang) }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+
+  <div>
+    {# ---- Letzte Admin-Aktionen ------------------------------------- #}
+    <section class="ad-section">
+      <h2 class="ad-h2">{{ t('admin.dash.recent_admin') }} <a class="ad-h2-link" href="/admin/audit">{{ t('admin.dash.all') }} →</a></h2>
+      {% if not recent_audit %}<p class="muted">{{ t('admin.audit.empty') }}</p>{% else %}
+      <ul class="alog">
+        {% for a in recent_audit %}
+        <li><span class="alog__a">{{ t('audit.' ~ a.action) }}</span>{% if a.summary %}<span class="alog__s">{{ a.summary }}</span>{% endif %}<span class="alog__m">{{ a.created_at | ago(lang) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+
+    {# ---- System ---------------------------------------------------- #}
+    <section class="ad-section">
+      <h2 class="ad-h2">{{ t('admin.dash.system') }}</h2>
+      <dl class="kv kv--panel">
+        <dt>{{ t('admin.dash.version') }}</dt><dd class="mono">v{{ version }}</dd>
+        <dt>{{ t('admin.dash.schema') }}</dt><dd class="mono">{{ system.alembic_head or '—' }}</dd>
+        <dt>{{ t('admin.dash.icons_db') }}</dt><dd class="mono">{{ system.icons }}</dd>
+        <dt>{{ t('admin.dash.events_unread') }}</dt><dd class="mono">{{ system.events_unread }}</dd>
+        <dt>{{ t('admin.dash.two_fa') }}</dt><dd>{% if two_fa.enabled %}<span class="badge badge--ok">{{ t('admin.sec.on') }}</span>{% else %}<span class="badge badge--warn">{{ t('admin.sec.off') }}</span>{% endif %}</dd>
+      </dl>
+    </section>
   </div>
 </div>
 {% endblock %}

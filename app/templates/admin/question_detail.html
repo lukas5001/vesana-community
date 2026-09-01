@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ question.title_text }} · {{ t('admin.nav.questions') }}{% endblock %}
+{% block crumbs %}<i>/</i><a href="/admin/questions">{{ t('admin.nav.questions') }}</a><i>/</i><b>{{ question.title_text }}</b>{% endblock %}
+
+{% block content %}
+{% set next_url = '/admin/questions/' ~ question.id %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{% if question.is_closed %}<span class="badge badge--closed">closed</span>{% else %}<span class="badge badge--ok">open</span>{% endif %}{% if question.is_vesana_team %} <span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}</p>
+    <h1>{{ question.title_text }}</h1>
+    <p class="lede"><a href="/admin/instances/{{ question.instance_uuid }}">{{ names.get(question.instance_uuid, '') }}</a> · {{ question.created_at | dt }} · {{ question.answer_count }} {{ t('admin.qa.answers') }} · ★ {{ question.vote_score }}{% if question.closed_reason %} · <span class="crit">{{ question.closed_reason }}</span>{% endif %}</p>
+  </div>
+  <div class="ad-head-r">
+    <a class="btn btn--ghost btn--sm" href="/questions/{{ question.id }}" target="_blank" rel="noopener"><svg><use href="#a-external"/></svg>{{ t('admin.prof.public') }}</a>
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div>
+    <div class="panel">
+      <div class="prose">{{ question.body_md | markdown_safe }}</div>
+      {% if question.tags %}<div class="tags" style="margin-top:10px">{% for tag in question.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
+    </div>
+
+    <h2 class="ad-h2">{{ t('admin.qa.answers') }} <span class="num">{{ answers | length }}</span></h2>
+    {% if not answers %}<p class="muted">{{ t('admin.qa.no_answers') }}</p>{% else %}
+    <ul class="clist">
+      {% for a in answers %}
+      <li class="cmt {% if a.is_accepted %}cmt--accepted{% endif %}">
+        <div class="cmt-head"><a class="au" href="/admin/instances/{{ a.instance_uuid }}">{{ names.get(a.instance_uuid, '') }}</a>{% if a.is_accepted %}<span class="badge badge--ok">{{ t('admin.qa.accepted') }}</span>{% endif %}{% if a.is_vesana_team %}<span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}<span class="score">★ {{ a.vote_score }} · {{ a.created_at | dt }}</span></div>
+        <div class="prose">{{ a.body_md | markdown_safe }}</div>
+        <div class="act act--left">
+          <form method="post" action="/admin/answers/{{ a.id }}/team" class="inline">{% include "admin/_csrf.html" %}<input type="hidden" name="flag" value="{{ 'false' if a.is_vesana_team else 'true' }}" /><button class="btn btn--ghost btn--sm" type="submit">{% if a.is_vesana_team %}{{ t('admin.qa.team_off') }}{% else %}{{ t('admin.qa.team_on') }}{% endif %}</button></form>
+          <form method="post" action="/admin/answers/{{ a.id }}/delete" class="inline" data-confirm="{{ t('admin.qa.answer_confirm') }}" data-confirm-ok="{{ t('admin.prof.delete') }}">{% include "admin/_csrf.html" %}<button class="btn btn--ghost btn--sm" type="submit"><svg><use href="#a-trash"/></svg>{{ t('admin.prof.delete') }}</button></form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if history.items %}
+    <h2 class="ad-h2">{{ t('admin.prof.tab_history') }}</h2>
+    <ul class="alog alog--wide">
+      {% for h in history.items %}
+      <li><span class="alog__a">{{ t('audit.' ~ h.action) }}</span><span class="alog__s">{{ h.summary or '' }}{% if h.details and h.details.reason %} — {{ h.details.reason }}{% endif %}</span><span class="alog__m">{{ h.admin_user }} · {{ h.created_at | dt }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.qa.moderate') }}</h3>
+      {% if question.is_closed %}
+      <form method="post" action="/admin/questions/{{ question.id }}/reopen">{% include "admin/_csrf.html" %}<button class="btn btn--ok btn--sm" type="submit"><svg><use href="#a-undo"/></svg>{{ t('admin.qa.reopen') }}</button></form>
+      {% else %}
+      <form method="post" action="/admin/questions/{{ question.id }}/close" class="stack">{% include "admin/_csrf.html" %}
+        <label class="field"><span class="field__label">{{ t('admin.qa.close_reason') }}</span><input class="field__input" type="text" name="reason" placeholder="{{ t('admin.qa.close_reason_ph') }}" /></label>
+        <button class="btn btn--danger btn--sm" type="submit"><svg><use href="#a-x"/></svg>{{ t('admin.qa.close') }}</button>
+        <p class="muted">{{ t('admin.qa.close_hint') }}</p>
+      </form>
+      {% endif %}
+    </div>
+    <div class="panel">
+      <h3>{{ t('admin.qa.team_flag') }}</h3>
+      <form method="post" action="/admin/questions/{{ question.id }}/team">{% include "admin/_csrf.html" %}<input type="hidden" name="flag" value="{{ 'false' if question.is_vesana_team else 'true' }}" /><button class="btn btn--ghost btn--sm" type="submit">{% if question.is_vesana_team %}{{ t('admin.qa.team_off') }}{% else %}{{ t('admin.qa.team_on') }}{% endif %}</button></form>
+      <p class="muted">{{ t('admin.qa.team_hint') }}</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

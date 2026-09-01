@@ -1,54 +1,89 @@
 {% extends "admin/base.html" %}
-{% block admin_title %}Profile{% endblock %}
 
-{% block admin_content %}
-<p class="admin-hint">
-  Alle Profile. Tier frei ändern (official / beta / community) oder löschen.
-  official/beta werden dabei automatisch genehmigt.
-</p>
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.prof.eyebrow') }}</p>
+    <h1>{{ t('admin.prof.title') }}</h1>
+    <p class="lede">{{ t('admin.prof.lede') }}</p>
+  </div>
+  <div class="cnt"><b>{{ counts.all }}</b>{{ t('reg.entries') }} · {{ counts.removed }} {{ t('admin.prof.removed_n') }}</div>
+</div>
 
-{% if not profiles %}
-<p class="admin-empty">Keine Profile.</p>
-{% else %}
-<table class="admin-table">
-  <thead>
-    <tr>
-      <th>Profil</th>
-      <th>Vendor</th>
-      <th>Tier</th>
-      <th>Review</th>
-      <th>Statistik</th>
-      <th>Tier setzen</th>
-      <th>Löschen</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in profiles %}
-    <tr>
-      <td><a href="/p/{{ p.id }}">{{ p.name }}</a></td>
-      <td>{{ p.vendor or "—" }}</td>
-      <td><span class="badge badge--{{ p.tier }}">{{ p.tier }}</span></td>
-      <td><span class="badge badge--{{ p.review_status }}">{{ p.review_status }}</span></td>
-      <td class="admin-dim">↓{{ p.download_count }} · ⤓{{ p.import_count }} · ★{{ p.vote_score }}</td>
-      <td class="admin-actions">
-        <form method="post" action="/admin/profiles/{{ p.id }}/tier" class="admin-inline">
-          <select class="admin-input" name="tier" aria-label="Tier">
-            {% for tr in ['official', 'beta', 'community'] %}
-            <option value="{{ tr }}" {% if p.tier == tr %}selected{% endif %}>{{ tr }}</option>
-            {% endfor %}
-          </select>
-          <button class="admin-btn" type="submit">Setzen</button>
-        </form>
-      </td>
-      <td class="admin-actions">
-        <form method="post" action="/admin/profiles/{{ p.id }}/delete" class="admin-inline"
-              data-confirm="Profil „{{ p.name }}“ wirklich löschen?">
-          <button class="admin-btn admin-btn--bad" type="submit">Löschen</button>
-        </form>
-      </td>
-    </tr>
+<form class="ad-filters" method="get" action="/admin/profiles" data-tools>
+  <div class="tools">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ f.q }}" placeholder="{{ t('admin.prof.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+    </label>
+    <span class="sel"><span class="sel-l">{{ t('browse.category') }}</span>
+      <select name="category" aria-label="{{ t('browse.category') }}"><option value="">{{ t('common.all') }}</option>{% for c in categories %}<option value="{{ c }}" {% if f.category == c %}selected{% endif %}>{{ lbl('cat', c) }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+    <span class="sel"><span class="sel-l">{{ t('browse.vendor') }}</span>
+      <select name="vendor" aria-label="{{ t('browse.vendor') }}"><option value="">{{ t('common.all') }}</option>{% for v in vendors %}<option value="{{ v }}" {% if f.vendor == v %}selected{% endif %}>{{ v }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+    <span class="sel"><span class="sel-l">{{ t('admin.col.status') }}</span>
+      <select name="review" aria-label="Review"><option value="">{{ t('common.all') }}</option>{% for r in ['pending','approved','rejected'] %}<option value="{{ r }}" {% if f.review == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+    <span class="sel"><span class="sel-l">{{ t('reg.sort') }}</span>
+      <select name="sort" aria-label="{{ t('reg.sort') }}">{% for s in sorts %}<option value="{{ s }}" {% if f.sort == s %}selected{% endif %}>{{ t('admin.sort.' ~ s) }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+    {% if f.removed %}<input type="hidden" name="removed" value="yes" />{% endif %}
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+  <div class="chips">
+    {% for tr in ['official', 'beta', 'community'] %}
+    <a class="chip {% if f.tier == tr %}on{% endif %}" href="{{ href(tier=(none if f.tier == tr else tr), page=none) }}">{{ tr }} <span class="chip__n">{{ counts[tr] }}</span></a>
     {% endfor %}
+    <span class="sep">|</span>
+    <a class="chip {% if f.source == 'team' %}on{% endif %}" href="{{ href(source=(none if f.source == 'team' else 'team'), page=none) }}">{{ t('admin.prof.src_team') }}</a>
+    <a class="chip {% if f.source == 'community' %}on{% endif %}" href="{{ href(source=(none if f.source == 'community' else 'community'), page=none) }}">{{ t('admin.prof.src_community') }}</a>
+    <a class="chip {% if f.scripts == 'yes' %}on{% endif %}" href="{{ href(scripts=(none if f.scripts == 'yes' else 'yes'), page=none) }}">{{ t('admin.prof.with_scripts') }}</a>
+    <a class="chip {% if f.review == 'pending' %}on{% endif %}" href="{{ href(review=(none if f.review == 'pending' else 'pending'), page=none) }}">pending <span class="chip__n">{{ counts.pending }}</span></a>
+    <span class="sep">|</span>
+    <a class="chip chip--muted {% if f.removed %}on{% endif %}" href="{{ href(removed=(none if f.removed else 'yes'), page=none) }}">{{ t('admin.prof.show_removed') }} <span class="chip__n">{{ counts.removed }}</span></a>
+    {% if filtered %}<a class="chip chip--x" href="/admin/profiles">{{ t('common.clear') }}</a>{% endif %}
+  </div>
+</form>
+
+<div data-results>
+{% if not profiles %}
+<p class="empty">{{ t('admin.prof.empty') }}</p>
+{% else %}
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr>
+    <th>{{ t('admin.col.profile') }}</th>
+    <th>{{ t('reg.col_tier') }}</th>
+    <th>{{ t('admin.col.status') }}</th>
+    <th>{{ t('admin.col.uploader') }}</th>
+    <th>{{ t('admin.col.version') }}</th>
+    <th class="r">↓</th>
+    <th class="r">★</th>
+    <th>{{ t('admin.col.updated') }}</th>
+    <th class="r">{{ t('admin.col.actions') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for p in profiles %}
+    <tr {% if p.is_removed %}class="row--removed"{% endif %}>
+      <td><a class="nm" href="/admin/profiles/{{ p.id }}">{{ p.name }}</a><div class="vd">{{ p.vendor or '—' }} · {{ lbl('cat', p.category) }}{% if p.has_scripts %} · <span class="badge badge--warn">scripts</span>{% endif %}</div></td>
+      <td><span class="tier tier-{{ p.tier }}">{{ p.tier }}</span></td>
+      <td>{% if p.is_removed %}<span class="badge badge--closed">{{ t('admin.prof.removed') }}</span>{% else %}<span class="badge badge--{{ p.review_status }}">{{ p.review_status }}</span>{% endif %}</td>
+      <td>{% if p.uploader_instance_uuid %}<a href="/admin/instances/{{ p.uploader_instance_uuid }}">{{ names.get(p.uploader_instance_uuid, '') }}</a>{% else %}<span class="muted">Vesana Team</span>{% endif %}</td>
+      <td class="mono">{{ (p.latest_version.version_tag if p.latest_version else (p.versions[0].version_tag if p.versions else '—')) }}</td>
+      <td class="r num">{{ p.download_count }}</td>
+      <td class="r num">{{ p.vote_score }}</td>
+      <td class="mono">{{ p.updated_at | d }}</td>
+      <td class="r act">
+        <a class="btn btn--ghost btn--sm" href="/admin/profiles/{{ p.id }}">{{ t('admin.prof.manage') }}</a>
+        {% if p.is_removed %}
+        <form method="post" action="/admin/profiles/{{ p.id }}/restore" class="inline">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ path }}?{{ request.url.query }}" /><button class="btn btn--ok btn--sm" type="submit">{{ t('admin.prof.restore') }}</button></form>
+        {% else %}
+        <form method="post" action="/admin/profiles/{{ p.id }}/delete" class="inline" data-confirm="{{ t('admin.prof.delete_confirm', name=p.name) }}" data-confirm-ok="{{ t('admin.prof.delete') }}">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ path }}?{{ request.url.query }}" /><button class="btn btn--ghost btn--sm btn--icon" type="submit" title="{{ t('admin.prof.delete') }}" aria-label="{{ t('admin.prof.delete') }}"><svg><use href="#a-trash"/></svg></button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
   </tbody>
 </table>
+</div>
+{% include "admin/_pager.html" %}
 {% endif %}
+</div>
 {% endblock %}

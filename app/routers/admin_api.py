@@ -1,10 +1,10 @@
 """Community admin JSON API (C8).
 
-Every endpoint here is gated by the C3 ``AdminFlag`` seam (the
-``X-Admin-Authorization`` Basic header): each handler calls ``_require_admin``
-and raises 401 when the header is missing or invalid. These coexist with the
-HTML admin pages (``app.routers.admin_pages``), which use ``require_admin``
-(browser Basic-auth prompt) + form posts; this JSON API is for programmatic use.
+Every endpoint here is gated by the ``AdminFlag`` seam (``X-Admin-Authorization``
+header: ``Bearer <COMMUNITY_ADMIN_API_TOKEN>``, or ``Basic user:password`` only
+while the admin has NO second factor — see ``is_admin_request``). These coexist
+with the HTML admin pages (``app.routers.admin_pages``), which use the admin
+SESSION + CSRF-protected form posts; this JSON API is for programmatic use.
 
 The review-queue endpoints (``/api/v1/admin/review-queue`` + approve/reject)
 already live in ``app.routers.uploads`` and are NOT redefined here.
@@ -77,7 +77,7 @@ def block_instance(
     db: DbDep,
 ) -> dict[str, object]:
     _require_admin(is_admin)
-    instance = admin_service.set_blocked(db, instance_uuid, payload.blocked)
+    instance = admin_service.set_blocked(db, instance_uuid, payload.blocked, payload.reason)
     db.commit()
     return {"uuid": instance.uuid, "is_blocked": instance.is_blocked}
 

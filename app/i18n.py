@@ -452,6 +452,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 
+# Admin-Bereich: eigene Datei, gleicher Vertrag (beide Sprachen, gleiche Schlüssel).
+from app.i18n_admin import ADMIN_TRANSLATIONS  # noqa: E402
+
+for _lang, _table in ADMIN_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_table)
+
+
 def normalize_lang(value: str | None) -> str:
     return value if value in LANGUAGES else DEFAULT_LANG
 

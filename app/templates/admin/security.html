@@ -1,0 +1,81 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.sec.eyebrow') }}</p>
+    <h1>{{ t('admin.sec.title') }}</h1>
+    <p class="lede">{{ t('admin.sec.lede') }}</p>
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div class="stack-lg">
+    <div class="panel">
+      <div class="panel__head">
+        <h3><svg class="ico"><use href="#a-shield"/></svg>{{ t('admin.sec.two_fa') }}</h3>
+        {% if two_fa.enabled %}<span class="badge badge--ok">{{ t('admin.sec.on') }}</span>{% else %}<span class="badge badge--warn">{{ t('admin.sec.off') }}</span>{% endif %}
+      </div>
+      {% if two_fa.enabled %}
+        <p>{{ t('admin.sec.on_since', date=two_fa.since | dt) }}</p>
+        <dl class="kv">
+          <dt>{{ t('admin.sec.backup_left') }}</dt><dd class="mono">{{ two_fa.backup_left }} / 10</dd>
+          <dt>{{ t('admin.sec.backup_generated') }}</dt><dd class="mono">{{ two_fa.backup_generated | dt }}</dd>
+        </dl>
+        {% if two_fa.backup_left <= 2 %}<div class="notice notice--warn"><svg><use href="#a-alert"/></svg><div>{{ t('admin.sec.backup_low') }}</div></div>{% endif %}
+
+        <h4 class="ad-h4">{{ t('admin.sec.codes_new_title') }}</h4>
+        <p class="muted">{{ t('admin.sec.codes_new_lede') }}</p>
+        <form method="post" action="/admin/security/backup-codes" class="row">{% include "admin/_csrf.html" %}
+          <label class="field"><span class="field__label">{{ t('adminlogin.code') }}</span><input class="field__input mono" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" required /></label>
+          <button class="btn btn--ghost btn--sm" type="submit"><svg><use href="#a-key"/></svg>{{ t('admin.sec.codes_new') }}</button>
+        </form>
+
+        <h4 class="ad-h4 crit">{{ t('admin.sec.disable_title') }}</h4>
+        <p class="muted">{{ t('admin.sec.disable_lede') }}</p>
+        <form method="post" action="/admin/security/2fa/disable" class="row" data-confirm="{{ t('admin.sec.disable_confirm') }}" data-confirm-ok="{{ t('admin.sec.disable') }}">{% include "admin/_csrf.html" %}
+          <label class="field"><span class="field__label">{{ t('adminlogin.pass') }}</span><input class="field__input" type="password" name="password" autocomplete="current-password" required /></label>
+          <label class="field"><span class="field__label">{{ t('adminlogin.code') }}</span><input class="field__input mono" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required /></label>
+          <button class="btn btn--danger btn--sm" type="submit">{{ t('admin.sec.disable') }}</button>
+        </form>
+      {% else %}
+        <p>{{ t('admin.sec.off_lede') }}</p>
+        <ol class="steps">
+          <li>{{ t('admin.sec.step_1') }}</li>
+          <li>{{ t('admin.sec.step_2') }}</li>
+          <li>{{ t('admin.sec.step_3') }}</li>
+        </ol>
+        <form method="post" action="/admin/security/2fa/setup">{% include "admin/_csrf.html" %}<button class="btn" type="submit"><svg><use href="#a-shield"/></svg>{{ t('admin.sec.enable') }}</button></form>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3><svg class="ico"><use href="#a-clock"/></svg>{{ t('admin.sec.logins') }}</h3>
+      {% if not logins %}<p class="muted">{{ t('admin.audit.empty') }}</p>{% else %}
+      <ul class="alog alog--wide">
+        {% for a in logins %}<li><span class="alog__a"><span class="badge {% if a.action.endswith('_failed') %}badge--closed{% else %}badge--ok{% endif %}">{{ t('audit.' ~ a.action) }}</span></span><span class="alog__s">{{ a.summary or '' }}{% if a.details and a.details.method %} · {{ a.details.method }}{% endif %}</span><span class="alog__m">{{ a.ip or '' }} · {{ a.created_at | dt }}</span></li>{% endfor %}
+      </ul>
+      <p><a class="hdr-link" href="/admin/audit?action=auth.*">{{ t('admin.dash.all') }} →</a></p>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.sec.session') }}</h3>
+      <dl class="kv">
+        <dt>{{ t('adminlogin.user') }}</dt><dd class="mono">{{ admin_user }}</dd>
+        <dt>{{ t('admin.sec.idle') }}</dt><dd class="mono">{{ idle_minutes }} min</dd>
+        <dt>{{ t('admin.sec.api_token') }}</dt><dd>{% if api_token_set %}<span class="badge badge--ok">{{ t('admin.sec.set') }}</span>{% else %}<span class="badge">{{ t('admin.sec.unset') }}</span>{% endif %}</dd>
+      </dl>
+      <p class="muted">{{ t('admin.sec.session_hint') }}</p>
+    </div>
+    <div class="panel">
+      <h3>{{ t('admin.sec.recovery') }}</h3>
+      <p class="muted">{{ t('admin.sec.recovery_lede') }}</p>
+      <pre class="code code--cmd"><code>DELETE FROM community.admin_accounts
+WHERE username = '{{ admin_user }}';</code></pre>
+    </div>
+  </aside>
+</div>
+{% endblock %}

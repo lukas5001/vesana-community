@@ -1,49 +1,64 @@
 {% extends "admin/base.html" %}
-{% block admin_title %}Instanzen{% endblock %}
 
-{% block admin_content %}
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.inst.eyebrow') }}</p>
+    <h1>{{ t('admin.inst.title') }}</h1>
+    <p class="lede">{{ t('admin.inst.lede') }}</p>
+  </div>
+  <div class="cnt"><b>{{ counts.all }}</b>{{ t('admin.inst.entries') }} · {{ counts.blocked }} {{ t('admin.inst.blocked') }}</div>
+</div>
+
+<form class="ad-filters" method="get" action="/admin/instances" data-tools>
+  <div class="tools">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.inst.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+    </label>
+    <span class="sel"><span class="sel-l">{{ t('reg.sort') }}</span>
+      <select name="sort" aria-label="{{ t('reg.sort') }}">{% for s in sorts %}<option value="{{ s }}" {% if sort == s %}selected{% endif %}>{{ t('admin.isort.' ~ s) }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+    {% if state %}<input type="hidden" name="state" value="{{ state }}" />{% endif %}
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+  <div class="chips">
+    <a class="chip {% if not state %}on{% endif %}" href="{{ href(state=none, page=none) }}">{{ t('common.all') }} <span class="chip__n">{{ counts.all }}</span></a>
+    <a class="chip {% if state == 'active' %}on{% endif %}" href="{{ href(state='active', page=none) }}">{{ t('admin.inst.active') }} <span class="chip__n">{{ counts.active }}</span></a>
+    <a class="chip {% if state == 'blocked' %}on{% endif %}" href="{{ href(state='blocked', page=none) }}">{{ t('admin.inst.blocked') }} <span class="chip__n">{{ counts.blocked }}</span></a>
+  </div>
+</form>
+
+<div data-results>
 {% if not instances %}
-<p class="admin-empty">Noch keine Instanzen.</p>
+<p class="empty">{{ t('admin.inst.empty') }}</p>
 {% else %}
-<table class="admin-table">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>UUID</th>
-      <th>Uploads</th>
-      <th>Zuletzt gesehen</th>
-      <th>Status</th>
-      <th>Aktion</th>
-    </tr>
-  </thead>
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr>
+    <th>{{ t('admin.inst.name') }}</th>
+    <th>{{ t('admin.inst.uuid') }}</th>
+    <th class="r">{{ t('admin.inst.uploads') }}</th>
+    <th>{{ t('admin.inst.joined') }}</th>
+    <th>{{ t('admin.inst.seen') }}</th>
+    <th>{{ t('admin.col.status') }}</th>
+    <th class="r">{{ t('admin.col.actions') }}</th>
+  </tr></thead>
   <tbody>
-    {% for i in instances %}
-    <tr>
-      <td>{{ i.display_name }}</td>
-      <td><code class="admin-uuid">{{ i.uuid }}</code></td>
-      <td>{{ i.uploaded_count }}</td>
-      <td>{{ i.last_seen_at.strftime("%Y-%m-%d %H:%M") }}</td>
-      <td>
-        {% if i.is_blocked %}
-        <span class="badge badge--closed">geblockt</span>
-        {% else %}
-        <span class="badge badge--community">aktiv</span>
-        {% endif %}
-      </td>
-      <td class="admin-actions">
-        <form method="post" action="/admin/instances/{{ i.uuid }}/block" class="admin-inline">
-          {% if i.is_blocked %}
-          <input type="hidden" name="blocked" value="false" />
-          <button class="admin-btn admin-btn--ok" type="submit">Entsperren</button>
-          {% else %}
-          <input type="hidden" name="blocked" value="true" />
-          <button class="admin-btn admin-btn--bad" type="submit">Blockieren</button>
-          {% endif %}
-        </form>
-      </td>
+  {% for i in instances %}
+    <tr {% if i.is_blocked %}class="row--removed"{% endif %}>
+      <td><a class="nm" href="/admin/instances/{{ i.uuid }}">{{ i.public_name }}</a><div class="vd">{{ t('admin.inst.sso_name') }}: <span class="mono">{{ i.display_name }}</span></div></td>
+      <td class="mono small">{{ i.uuid[:8] }}…</td>
+      <td class="r num">{{ i.uploaded_count }}</td>
+      <td class="mono">{{ i.joined_at | d }}</td>
+      <td class="mono">{{ i.last_seen_at | ago(lang) }}</td>
+      <td>{% if i.is_blocked %}<span class="badge badge--closed" title="{{ i.blocked_reason or '' }}">blocked</span>{% else %}<span class="badge badge--ok">active</span>{% endif %}</td>
+      <td class="r act"><a class="btn btn--ghost btn--sm" href="/admin/instances/{{ i.uuid }}">{{ t('admin.prof.manage') }}</a></td>
     </tr>
-    {% endfor %}
+  {% endfor %}
   </tbody>
 </table>
+</div>
+{% include "admin/_pager.html" %}
 {% endif %}
+</div>
 {% endblock %}

@@ -27,6 +27,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.identity import public_name
 from app.models.community_profile import CommunityProfile
 from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
@@ -320,12 +321,13 @@ def create_or_version_profile(
 
 
 def _uploader_display(db: Session, profile: CommunityProfile) -> str:
+    """Öffentlicher Name des Uploaders — nie der rohe SSO-Name (``instanz-…``)."""
     if not profile.uploader_instance_uuid:
         return VESANA_TEAM_UPLOADER
     instance = db.get(Instance, profile.uploader_instance_uuid)
-    if instance is not None and instance.display_name:
-        return instance.display_name
-    return VESANA_TEAM_UPLOADER
+    if instance is None:
+        return VESANA_TEAM_UPLOADER
+    return public_name(instance.display_name, instance.uuid, instance.chosen_name)
 
 
 def _current_version_tag(profile: CommunityProfile) -> str | None:

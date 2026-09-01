@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.icons.eyebrow') }}</p>
+    <h1>{{ t('admin.icons.title') }}</h1>
+    <p class="lede">{{ t('admin.icons.lede') }}</p>
+  </div>
+</div>
+
+<div class="kpis kpis--4">
+  <div class="kpi"><span class="kpi__l">{{ t('admin.icons.total') }}</span><span class="kpi__v">{{ overview.total }}</span><span class="kpi__s">{{ (overview.size_bytes / 1048576) | round(1) }} MB</span></div>
+  {% for src, n in overview.sources.items() %}<div class="kpi"><span class="kpi__l mono">{{ src }}</span><span class="kpi__v">{{ n }}</span></div>{% endfor %}
+  <div class="kpi"><span class="kpi__l">{{ t('admin.icons.with_dark') }}</span><span class="kpi__v">{{ overview.with_dark }}</span><span class="kpi__s">{{ t('admin.dash.synced') }} {{ overview.last_synced_at | dt }}</span></div>
+</div>
+
+<div class="ad-cols ad-cols--wide">
+  <section>
+    <form class="ad-filters" method="get" action="/admin/icons" data-tools>
+      <div class="tools">
+        <label class="search"><svg><use href="#i-search"/></svg><input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.icons.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+        <span class="sel"><span class="sel-l">{{ t('admin.icons.source') }}</span><select name="source" aria-label="{{ t('admin.icons.source') }}"><option value="">{{ t('common.all') }}</option>{% for src in overview.sources %}<option value="{{ src }}" {% if source == src %}selected{% endif %}>{{ src }}</option>{% endfor %}</select><svg><use href="#i-chev"/></svg></span>
+        <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+      </div>
+    </form>
+    <div data-results>
+      {% if not icons %}<p class="empty">{{ t('admin.icons.empty') }}</p>{% else %}
+      <div class="igrid igrid--admin">
+        {% for i in icons %}
+        <div class="icard">
+          <span class="tile tile--logo"><img src="/api/v1/icon-library/{{ i.slug }}/file" alt="" loading="lazy" width="36" height="36" /></span>
+          <span class="slug">{{ i.slug }}</span>
+          <span class="src">{{ i.source }}{% if i.dark_sha256 %} · dark{% endif %} · {{ (i.file_size_bytes / 1024) | round(1) }} kB</span>
+          <button type="button" data-copy="{{ i.slug }}" data-copied="✓">{{ t('icons.copy') }}</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% include "admin/_pager.html" %}
+      {% endif %}
+    </div>
+  </section>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.icons.missing_title') }}</h3>
+      <p class="muted">{{ t('admin.icons.missing_lede', n=overview.vendors_missing|length, total=overview.vendors_total) }}</p>
+      {% if overview.vendors_missing %}<ul class="plain">{% for v in overview.vendors_missing %}<li><a href="/admin/profiles?vendor={{ v | urlencode }}">{{ v }}</a></li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="panel">
+      <h3>{{ t('admin.icons.sync_title') }}</h3>
+      <p class="muted">{{ t('admin.icons.sync_lede') }}</p>
+      <pre class="code code--cmd"><code>python -m app.sync_icon_library</code></pre>
+    </div>
+  </aside>
+</div>
+{% endblock %}

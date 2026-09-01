@@ -4,6 +4,8 @@ All models must be imported here so that Alembic autogenerate and
 ``Base.metadata.create_all`` (and the test fixtures) can discover every table.
 """
 
+from app.models.admin_account import AdminAccount
+from app.models.admin_audit import AdminAuditLog
 from app.models.answer import Answer
 from app.models.community_event import CommunityEvent
 from app.models.community_profile import CommunityProfile
@@ -17,6 +19,8 @@ from app.models.used_login_token import UsedLoginToken
 from app.models.vote import Vote
 
 __all__ = [
+    "AdminAccount",
+    "AdminAuditLog",
     "Instance",
     "UsedLoginToken",
     "CommunityEvent",

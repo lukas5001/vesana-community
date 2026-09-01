@@ -1,70 +1,66 @@
 {% extends "admin/base.html" %}
-{% block admin_title %}Review-Queue{% endblock %}
 
-{% block admin_content %}
-<nav class="admin-tabs">
-  {% for opt in ["pending", "approved", "rejected", "all"] %}
-  <a
-    class="admin-tab {% if status_filter == opt %}admin-tab--active{% endif %}"
-    href="/admin/review{% if opt != 'pending' %}?status={{ opt }}{% endif %}"
-  >{{ opt }}</a>
-  {% endfor %}
-</nav>
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.review.eyebrow') }}</p>
+    <h1>{{ t('admin.review.title') }}</h1>
+    <p class="lede">{{ t('admin.review.lede') }}</p>
+  </div>
+</div>
 
-{% if not items %}
-<p class="admin-empty">Keine Profile in dieser Ansicht.</p>
-{% else %}
-<table class="admin-table">
-  <thead>
-    <tr>
-      <th>Profil</th>
-      <th>Uploader</th>
-      <th>Version</th>
-      <th>Status</th>
-      <th>Scripts</th>
-      <th>Aktionen</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for item in items %}
-    <tr>
-      <td>
-        <a href="/p/{{ item.profile_id }}">{{ item.name }}</a>
-        {% if item.vendor %}<span class="admin-dim">· {{ item.vendor }}</span>{% endif %}
-      </td>
-      <td>{{ item.uploader_display }}</td>
-      <td>{{ item.current_version_tag or "—" }}</td>
-      <td><span class="badge badge--{{ item.review_status }}">{{ item.review_status }}</span></td>
-      <td>
-        {% if item.has_scripts %}
-        <span class="badge badge--warn">⚠ Scripts</span>
-        {% if item.script_findings %}
-        <ul class="admin-findings">
-          {% for f in item.script_findings %}
-          <li><code>{{ f.marker }}</code> @ {{ f.where }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-        {% else %}
-        <span class="admin-dim">keine</span>
-        {% endif %}
-      </td>
-      <td class="admin-actions">
-        {% if item.review_status != "approved" %}
-        <form method="post" action="/admin/review/{{ item.profile_id }}/approve">
-          <button class="admin-btn admin-btn--ok" type="submit">Freigeben</button>
-        </form>
-        {% endif %}
-        {% if item.review_status != "rejected" %}
-        <form method="post" action="/admin/review/{{ item.profile_id }}/reject" class="admin-inline">
-          <input class="admin-input" type="text" name="reason" placeholder="Grund" />
-          <button class="admin-btn admin-btn--bad" type="submit">Ablehnen</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
+<form class="ad-filters" method="get" action="/admin/review" data-tools>
+  <div class="tools">
+    <label class="search">
+      <svg><use href="#i-search"/></svg>
+      <input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.review.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" />
+    </label>
+    <input type="hidden" name="status" value="{{ status_filter }}" />
+    <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+  </div>
+  <div class="chips">
+    {% for opt in ['pending', 'approved', 'rejected', 'all'] %}
+    <a class="chip {% if status_filter == opt %}on{% endif %}" href="{{ href(status=opt, page=none) }}">{{ opt if opt != 'all' else t('common.all') }} <span class="chip__n">{{ counts[opt] }}</span></a>
     {% endfor %}
+  </div>
+</form>
+
+<div data-results>
+{% if not items %}
+<p class="empty">{{ t('admin.review.empty') }}</p>
+{% else %}
+<div class="reg-wrap">
+<table class="reg reg--admin">
+  <thead><tr>
+    <th>{{ t('admin.col.profile') }}</th>
+    <th>{{ t('admin.col.uploader') }}</th>
+    <th>{{ t('admin.col.version') }}</th>
+    <th>{{ t('admin.col.status') }}</th>
+    <th>{{ t('admin.col.scripts') }}</th>
+    <th>{{ t('admin.col.uploaded') }}</th>
+    <th class="r">{{ t('admin.col.actions') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for item in items %}
+    <tr>
+      <td><a class="nm" href="/admin/review/{{ item.profile_id }}">{{ item.name }}</a><div class="vd">{{ item.vendor or '—' }}</div></td>
+      <td>{{ item.uploader_display }}</td>
+      <td class="mono">{{ item.current_version_tag or '—' }}</td>
+      <td><span class="badge badge--{{ item.review_status }}">{{ item.review_status }}</span></td>
+      <td>{% if item.has_scripts or item.script_findings %}<span class="badge badge--warn" title="{{ item.script_findings | length }} {{ t('admin.review.findings') }}">{{ t('admin.review.scripts_yes') }}{% if item.script_findings %} · {{ item.script_findings | length }}{% endif %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="mono">{{ item.created_at | d }}</td>
+      <td class="r act">
+        <a class="btn btn--ghost btn--sm" href="/admin/review/{{ item.profile_id }}">{{ t('admin.review.inspect') }}</a>
+        {% if item.review_status != 'approved' %}
+        <form method="post" action="/admin/review/{{ item.profile_id }}/approve" class="inline">{% include "admin/_csrf.html" %}<button class="btn btn--ok btn--sm" type="submit">{{ t('admin.review.approve') }}</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
   </tbody>
 </table>
+</div>
+{% include "admin/_pager.html" %}
 {% endif %}
+</div>
 {% endblock %}
