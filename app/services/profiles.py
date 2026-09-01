@@ -20,7 +20,7 @@ from app.services.ranking import trending_score
 # (approved vs "waiting for review") is layered on in C3; the seam is here.
 VISIBLE_TIERS = ("official", "beta")
 
-SORT_OPTIONS = ("popularity", "newest", "trending")
+SORT_OPTIONS = ("trending", "popularity", "newest", "name")
 DEFAULT_SORT = "trending"
 DEFAULT_LIMIT = 30
 MAX_LIMIT = 100
@@ -35,6 +35,8 @@ class ProfileFilters:
     requires_agent: bool | None = None
     requires_collector: bool | None = None
     requires_snmp: bool | None = None
+    requires_ssh: bool | None = None
+    requires_api_token: bool | None = None
     sort: str = DEFAULT_SORT
     limit: int = DEFAULT_LIMIT
     offset: int = 0
@@ -91,6 +93,10 @@ def _apply_filters(stmt, filters: ProfileFilters):
         stmt = stmt.where(CommunityProfile.requires_collector.is_(filters.requires_collector))
     if filters.requires_snmp is not None:
         stmt = stmt.where(CommunityProfile.requires_snmp.is_(filters.requires_snmp))
+    if filters.requires_ssh is not None:
+        stmt = stmt.where(CommunityProfile.requires_ssh.is_(filters.requires_ssh))
+    if filters.requires_api_token is not None:
+        stmt = stmt.where(CommunityProfile.requires_api_token.is_(filters.requires_api_token))
     return stmt
 
 
@@ -137,7 +143,10 @@ def list_profiles(
     total = db.execute(count_stmt).scalar_one()
 
     profiles = list(db.execute(stmt).scalars().all())
-    profiles.sort(key=lambda p: _sort_key(p, sort, now), reverse=True)
+    if sort == "name":
+        profiles.sort(key=lambda p: (p.name or "").casefold())
+    else:
+        profiles.sort(key=lambda p: _sort_key(p, sort, now), reverse=True)
     page = profiles[offset : offset + limit]
     return page, total
 

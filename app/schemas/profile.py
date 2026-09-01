@@ -113,7 +113,9 @@ _SECRET_KEY_HINTS = (
     "private",
     "key",
 )
-# Structural keys that are not user-facing settings.
+# Structural keys that are not user-facing settings — plus profile-row
+# metadata (ordering, auto-add, telemetry flag, confirmation cadence) that
+# says nothing about WHAT the check measures. Thresholds/interval/mode stay.
 _SKIP_KEYS = {
     "name",
     "check_type",
@@ -124,6 +126,11 @@ _SKIP_KEYS = {
     "check_id",
     "profile_check_id",
     "profile_id",
+    "auto_add",
+    "sort_order",
+    "is_telemetry",
+    "confirmation_attempts",
+    "confirmation_interval_seconds",
 }
 _MAX_SETTINGS = 20
 _MAX_VALUE_LEN = 160

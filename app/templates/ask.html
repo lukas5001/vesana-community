@@ -1,35 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('qa.ask') }} &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ t('qa.ask') }} · Vesana Community{% endblock %}
 
 {% block content %}
+<nav class="path" aria-label="{{ t('nav.path') }}"><a href="/questions">{{ t('nav.qa') }}</a><i>/</i><b>{{ t('qa.ask') }}</b></nav>
 <h1>{{ t('qa.ask_title') }}</h1>
 <p class="lede">{{ t('qa.ask_lede') }}</p>
 
 {% if not current_instance %}
-<div class="card"><p>{{ t('common.signin_hint') }}</p></div>
+<p class="signin">{{ t('common.signin_hint') }}</p>
 {% else %}
-
-{% if error %}<div class="form-error">{{ error }}</div>{% endif %}
-
-<form class="card ask-form" method="post" action="/questions/ask">
-  <label class="field">
-    <span class="field__label">{{ t('qa.f_title') }}</span>
-    <input class="field__input" type="text" name="title_text" value="{{ title_text or '' }}"
-           placeholder="{{ t('qa.f_title_ph') }}" required />
-  </label>
-  <label class="field">
-    <span class="field__label">{{ t('qa.f_body') }}</span>
-    <textarea class="field__input" name="body_md" rows="8" placeholder="{{ t('qa.f_body_ph') }}">{{ body_md or '' }}</textarea>
-  </label>
-  <label class="field">
-    <span class="field__label">{{ t('qa.f_tags') }}</span>
+{% if error %}<div class="form-error narrow">{{ error }}</div>{% endif %}
+<form class="card form-card" method="post" action="/questions/ask">
+  <label class="field"><span class="field__label">{{ t('qa.f_title') }}</span>
+    <input class="field__input" type="text" name="title_text" value="{{ title_text or '' }}" placeholder="{{ t('qa.f_title_ph') }}" required /></label>
+  <label class="field"><span class="field__label">{{ t('qa.f_body') }}</span>
+    <textarea class="field__input" name="body_md" rows="8" placeholder="{{ t('qa.f_body_ph') }}">{{ body_md or '' }}</textarea></label>
+  <label class="field"><span class="field__label">{{ t('qa.f_tags') }}</span>
     <input class="field__input" type="text" name="tags" value="{{ tags or '' }}" placeholder="{{ t('qa.f_tags_ph') }}" />
-    <span class="field__hint">{{ t('qa.f_tags_hint') }}</span>
-  </label>
-  <div class="form-actions">
-    <button class="btn" type="submit">{{ t('qa.post') }}</button>
-  </div>
+    <span class="field__hint">{{ t('qa.f_tags_hint') }}</span></label>
+  <div class="form-actions"><button class="btn" type="submit">{{ t('qa.post') }}</button></div>
 </form>
 {% endif %}
 {% endblock %}

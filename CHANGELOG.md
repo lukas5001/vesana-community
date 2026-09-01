@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.10.0 — Register: Neubau der Oberfläche im Vesana-Design
+
+Komplett neue Oberfläche für community.vesana.org. Der Hub ist jetzt ein
+Verzeichnis („Register") in der Vesana-Marke — Oxblood/Cream/Ink, Geist +
+Inter + Geist Mono (selbst gehostet), hell und dunkel.
+
+### Aufbau
+
+- Startseite = Bibliothek. Der Willkommens-Kasten (`index.html`) ist weg,
+  der Anmelde-Zustand steht in der Kopfzeile.
+- Register-Zeilen statt Kacheln: Profil · Stufe · Voraussetzung · Version ·
+  Downloads nebeneinander; Karten-Ansicht umschaltbar (Cookie `view`).
+- Facetten: Kategorie, Hersteller, Sortierung (Trend/Downloads/Neueste/Name),
+  Chips für Stufe und Voraussetzung (`?req=agent|collector|snmp|ssh|api_token`).
+  Sofortsuche ohne Reload bleibt (`community.js`).
+- Profilseite: Kopf mit Icon/Logo, Seitenspalte „Einbauen / Voraussetzungen /
+  Kennzahlen", Reiter Checks (nach Ausführungsfamilie gruppiert, Einstellungen
+  aufklappbar) · Versionen · Kommentare · Fragen. Pfadleiste statt „← Zurück".
+- Neue Seite `/icons`: die Icon-Bibliothek (5.295 Icons) durchsuchen, Slug kopieren.
+- Icons: der Slug (`server`, `shield`, …) wird als Symbol gerendert, nie mehr als
+  Text; Hersteller-Logos kommen aus der Icon-Bibliothek, wo sie existieren.
+- Hell/Dunkel: System-Vorgabe, Umschalter in der Kopfzeile, `?theme=` als
+  teilbarer Link; kein hartes `data-theme="dark"` mehr.
+- `question.html` vollständig übersetzt (war englisch hart kodiert); Stufen und
+  Statusse bleiben englisch (official/beta/community, Accepted).
+
+### Technik
+
+- `community.css` neu geschrieben (Tokens + Alias-Tokens für den Admin-Bereich,
+  dessen Templates unverändert weiterlaufen). Fonts unter `/static/fonts`.
+- `app/i18n.py::label()` + Template-Helfer `lbl()`/`href()`; neue Schlüssel
+  `reg.*`, `cat.*`, `sort.*`, `icons.*`, `detail.tab_*`.
+- `ProfileFilters` kennt `requires_ssh`/`requires_api_token`; Sortierung `name`.
+- Quell-Anker `tests/test_templates_source.py`: Übersetzungen vollständig und
+  symmetrisch, kein Icon-Slug als Text, kein Inline-Script (CSP), Font-Dateien
+  vorhanden, keine fremde Farbe.
+
 ## 0.7.0 — Admin panel
 
 Added the community admin panel (C8): a server-rendered HTML console plus a

@@ -1,78 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}{{ question.title_text }} &middot; Vesana Community Hub{% endblock %}
+{% block title %}{{ question.title_text }} · Vesana Community{% endblock %}
 
 {% block content %}
-<p class="breadcrumb"><a href="/questions">&larr; Back to questions</a></p>
+<nav class="path" aria-label="{{ t('nav.path') }}"><a href="/questions">{{ t('nav.qa') }}</a><i>/</i><b>{{ question.title_text | truncate(60) }}</b></nav>
 
-<div class="question-head">
-    <div class="detail-title-row">
-        <h1>{{ question.title_text }}</h1>
-        {% if question.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
-        {% if question.is_closed %}<span class="closed-badge">Closed</span>{% endif %}
-    </div>
-    <div class="detail-meta">
-        <span>by {{ question.author_display }}</span>
-        <span>&middot; <span class="vote-pill" title="Score">{{ question.vote_score }}</span></span>
-        <span>&middot; {{ question.answer_count }} answer{{ '' if question.answer_count == 1 else 's' }}</span>
-    </div>
+<div class="qhead">
+  <h1>{{ question.title_text }}</h1>
+  <div class="meta">
+    <span>{{ t('detail.by') }} {{ question.author_display }}</span>
+    {% if question.is_vesana_team %}<span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}
+    {% if question.is_closed %}<span class="badge badge--closed">{{ t('qa.closed') }}</span>{% endif %}
+    <span class="dot">·</span><span class="num">{{ question.vote_score }}</span> {{ t('browse.stat_score') }}
+    <span class="dot">·</span><span>{{ t('qa.answers', count=question.answer_count) }}</span>
+    {% if question.profile_id %}<span class="dot">·</span><a href="/p/{{ question.profile_id }}">{{ t('qa.related_profile') }}</a>{% endif %}
+  </div>
 </div>
 
 {% if question.is_closed %}
-<div class="closed-notice">
-    {% if duplicate_of %}
-    This question was closed as a duplicate of
-    <a href="/questions/{{ duplicate_of.id }}">{{ duplicate_of.title_text }}</a>.
-    {% else %}
-    This question is closed and no longer accepts new answers.
-    {% endif %}
-    {% if question.closed_reason %}<div class="muted">{{ question.closed_reason }}</div>{% endif %}
+<div class="notice">
+  {% if duplicate_of %}{{ t('qa.closed_dup') }} <a href="/questions/{{ duplicate_of.id }}">{{ duplicate_of.title_text }}</a>.{% else %}{{ t('qa.closed_notice') }}{% endif %}
+  {% if question.closed_reason %}<div class="muted">{{ question.closed_reason }}</div>{% endif %}
 </div>
 {% endif %}
 
-<section class="detail-section">
-    <div class="markdown-body">{{ question.body_md | markdown_safe }}</div>
-    {% if question.tags %}
-    <div class="card-tags">
-        {% for tag in question.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
-    </div>
-    {% endif %}
-    {% if question.profile_id %}
-    <p class="muted">Related profile: <a href="/p/{{ question.profile_id }}">view profile</a></p>
-    {% endif %}
-</section>
+<div class="qbody">
+  <div class="prose">{{ question.body_md | markdown_safe }}</div>
+  {% if question.tags %}<div class="tags" style="margin-top:10px">{% for tag in question.tags %}<a class="tag" href="/questions?tag={{ tag }}">{{ tag }}</a>{% endfor %}</div>{% endif %}
+</div>
 
-<section class="detail-section answers-section">
-    <h2>{{ answers | length }} Answer{{ '' if answers | length == 1 else 's' }}</h2>
-    {# TODO(client widget): posting / voting / accepting controls land with the
-       client-side widget. Server-side answers render read-only, accepted first. #}
-    {% if not answers %}
-    <p class="muted">No answers yet.</p>
-    {% endif %}
-    <ul class="answer-list">
-        {% for a in answers %}
-        <li class="answer{% if a.is_accepted %} answer--accepted{% endif %}">
-            <div class="answer-head">
-                <span class="comment-author">{{ a.author_display }}</span>
-                {% if a.is_vesana_team %}<span class="vesana-team-badge">Vesana Team</span>{% endif %}
-                {% if a.is_accepted %}<span class="accepted-badge">✅ Akzeptiert</span>{% endif %}
-                <span class="vote-pill" title="Score">{{ a.vote_score }}</span>
-            </div>
-            <div class="answer-body markdown-body">{{ a.body_md | markdown_safe }}</div>
-        </li>
-        {% endfor %}
-    </ul>
-    {% if question.is_closed %}
-    {% elif current_instance %}
-    <form class="ask-form" method="post" action="/questions/{{ question.id }}/answer">
-        <label class="field">
-            <span class="field__label">Your answer</span>
-            <textarea class="field__input" name="body_md" rows="5" placeholder="Share what you know…" required></textarea>
-        </label>
-        <div class="form-actions"><button class="btn" type="submit">Post answer</button></div>
-    </form>
-    {% else %}
-    <p class="muted">Open the Community Hub from your Vesana instance to answer.</p>
-    {% endif %}
-</section>
+<h2 style="margin-bottom:12px">{{ t('qa.answers', count=answers | length) }}</h2>
+{% if not answers %}<p class="muted" style="margin-bottom:16px">{{ t('qa.no_answers') }}</p>{% endif %}
+<ul class="clist" style="max-width:760px">
+  {% for a in answers %}
+  <li class="cmt{% if a.is_accepted %} cmt--accepted{% endif %}">
+    <div class="cmt-head">
+      <span class="au">{{ a.author_display }}</span>
+      {% if a.is_vesana_team %}<span class="badge badge--team">{{ t('qa.team') }}</span>{% endif %}
+      {% if a.is_accepted %}<span class="badge badge--ok">{{ t('qa.accepted') }}</span>{% endif %}
+      <span class="score">{{ a.vote_score }}</span>
+    </div>
+    <div class="prose">{{ a.body_md | markdown_safe }}</div>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if question.is_closed %}
+{% elif current_instance %}
+<form class="cform" method="post" action="/questions/{{ question.id }}/answer" style="margin-top:20px">
+  <label class="field"><span class="field__label">{{ t('qa.answer_label') }}</span>
+    <textarea class="field__input" name="body_md" rows="5" placeholder="{{ t('qa.answer_ph') }}" required></textarea></label>
+  <div class="form-actions"><button class="btn" type="submit">{{ t('qa.answer_btn') }}</button></div>
+</form>
+{% else %}
+<p class="signin" style="margin-top:20px">{{ t('qa.answer_signin') }}</p>
+{% endif %}
 {% endblock %}

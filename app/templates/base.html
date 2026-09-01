@@ -1,44 +1,55 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="{{ lang }}">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}Vesana Community Hub{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#F5EDE0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1F1419" media="(prefers-color-scheme: dark)" />
+    <title>{% block title %}Vesana Community{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/css/community.css" />
+    <script src="/static/js/theme.js"></script>
   </head>
   <body>
-    <header class="site-header">
-      <div class="site-header__inner">
-        <a class="brand" href="/">
-          <span class="brand__mark">●</span>
-          <span class="brand__name">Vesana Community Hub</span>
+    {% include "_icons.html" %}
+    <header class="hdr">
+      <div class="wrap">
+        <a class="brand" href="/" aria-label="Vesana Community">
+          <svg width="20" height="20"><use href="#i-mark"/></svg>VESANA <span>Community</span>
         </a>
-        <nav class="site-nav">
-          <a class="site-nav__link" href="/">{{ t('nav.profiles') }}</a>
-          <a class="site-nav__link" href="/questions">{{ t('nav.qa') }}</a>
-          {% if current_instance %}<a class="site-nav__link" href="/upload">{{ t('nav.upload') }}</a>{% endif %}
+        {% set path = request.url.path %}
+        <nav class="nav" aria-label="{{ t('nav.label') }}">
+          <a href="/" {% if path == '/' or path.startswith('/browse') or path.startswith('/p/') %}aria-current="page"{% endif %}>{{ t('nav.profiles') }}</a>
+          <a href="/questions" {% if path.startswith('/questions') %}aria-current="page"{% endif %}>{{ t('nav.qa') }}</a>
+          <a href="/icons" {% if path.startswith('/icons') %}aria-current="page"{% endif %}>{{ t('nav.icons') }}</a>
+          {% if current_instance %}<a href="/upload" {% if path.startswith('/upload') %}aria-current="page"{% endif %}>{{ t('nav.upload') }}</a>{% endif %}
         </nav>
-        <div class="site-account">
-          <span class="lang-switch">
-            {% for l in languages %}{% if l == lang %}<span class="lang-switch__active">{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}">{{ l|upper }}</a>{% endif %}{% endfor %}
-          </span>
+        <div class="hdr-r">
+          <span class="lang">{% for l in languages %}{% if l == lang %}<span>{{ l|upper }}</span>{% else %}<a href="/lang/{{ l }}" hreflang="{{ l }}">{{ l|upper }}</a>{% endif %}{% if not loop.last %}·{% endif %}{% endfor %}</span>
+          <button class="theme-btn" type="button" data-theme-toggle aria-label="{{ t('nav.theme') }}" title="{{ t('nav.theme') }}"><svg><use href="#i-moon"/></svg></button>
           {% if current_instance %}
-            <a class="site-account__name" href="/account" title="{{ t('nav.account') }}">{{ current_instance.name }}{% if current_instance.is_real %}<span class="site-account__suffix">#{{ current_instance.suffix }}</span>{% endif %}</a>
-            <a class="site-account__action" href="/logout">{{ t('nav.signout') }}</a>
+            <a class="me" href="/account" title="{{ t('nav.account') }}">{{ current_instance.name }}{% if current_instance.is_real %} <small>#{{ current_instance.suffix }}</small>{% endif %}</a>
+            <a class="hdr-link" href="/logout">{{ t('nav.signout') }}</a>
           {% else %}
-            <span class="site-account__anon">{{ t('nav.anon') }}</span>
+            <span class="anon">{{ t('nav.anon') }}</span>
           {% endif %}
         </div>
         {% block header_extra %}{% endblock %}
       </div>
     </header>
 
-    <main class="content">
+    <main>
+      <div class="wrap">
       {% block content %}{% endblock %}
+      </div>
     </main>
 
-    <footer class="site-footer">
-      <span>vesana-community v{{ version }}</span>
+    <footer class="ftr">
+      <div class="wrap">
+        <span>vesana-community v{{ version }}</span>
+        <span><a href="https://vesana.org">vesana.org</a> · <a href="https://docs.vesana.org">{{ t('nav.docs') }}</a></span>
+      </div>
     </footer>
     <script src="/static/js/community.js" defer></script>
   </body>

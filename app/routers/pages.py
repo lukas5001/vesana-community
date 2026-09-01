@@ -18,14 +18,15 @@ from fastapi import (
     status,
 )
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, defer
 
 from app.auth.deps import get_session_instance
 from app.db import get_db
 from app.identity import public_name
 from app.models.community_profile import CommunityProfile
 from app.models.instance import Instance
+from app.models.library_icon import LibraryIcon
 from app.models.question import Question
 from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
 from app.services import qa as qa_service
@@ -68,6 +69,87 @@ def _distinct_values(db: Session, column) -> list[str]:
     return [r for r in rows if r]
 
 
+# Kategorie-Symbole, die das Sprite (_icons.html) kennt. Unbekannte Slugs
+# fallen auf "box" zurück — nie wieder ein Slug als Text.
+ICON_SLUGS = frozenset(
+    {
+        "server",
+        "shield",
+        "router",
+        "network",
+        "hard-drive",
+        "battery",
+        "printer",
+        "monitor",
+        "box",
+        "speaker",
+        "phone",
+        "wifi",
+    }
+)
+_ICON_ALIASES = {
+    "switch": "network",
+    "firewall": "shield",
+    "nas": "hard-drive",
+    "ups": "battery",
+    "wlan": "wifi",
+}
+
+# Voraussetzungs-Filter (Chips) → Spalte am Profil.
+REQ_KEYS = ("agent", "collector", "snmp", "ssh", "api_token")
+
+
+def _icon_slug(profile: CommunityProfile) -> str:
+    raw = (profile.icon or profile.category or "").strip().lower()
+    raw = _ICON_ALIASES.get(raw, raw)
+    return raw if raw in ICON_SLUGS else "box"
+
+
+def _req_chips(profile: CommunityProfile, t) -> list[str]:
+    chips = [t(f"reg.req_{key}") for key in REQ_KEYS if getattr(profile, f"requires_{key}", False)]
+    if profile.has_scripts:
+        chips.append(t("reg.req_scripts"))
+    if profile.vesana_min_version:
+        chips.append(f"≥ {profile.vesana_min_version}")
+    return chips
+
+
+def _fmt_date(value: datetime | None) -> str:
+    return value.strftime("%d.%m.%Y") if value else "—"
+
+
+def _vendor_logos(db: Session, vendors: set[str]) -> dict[str, str]:
+    """Map vendor → icon-library slug where the library carries the vendor's logo.
+
+    One query for the page; a vendor without a logo keeps the category symbol.
+    ``generic`` is never a logo.
+    """
+    candidates = {v.strip().lower() for v in vendors if v and v.strip().lower() != "generic"}
+    if not candidates:
+        return {}
+    rows = db.execute(
+        select(LibraryIcon.slug).where(LibraryIcon.slug.in_(sorted(candidates)))
+    ).scalars()
+    found = set(rows)
+    return {v: v.strip().lower() for v in vendors if v and v.strip().lower() in found}
+
+
+def _facet_counts(db: Session) -> tuple[dict, int]:
+    """Counts per tier / requirement / category over ALL visible profiles."""
+    from app.services.profiles import _base_select
+
+    rows = list(db.execute(_base_select()).scalars().all())
+    counts: dict[str, dict[str, int]] = {"tier": {}, "req": {}, "category": {}}
+    for p in rows:
+        counts["tier"][p.tier] = counts["tier"].get(p.tier, 0) + 1
+        if p.category:
+            counts["category"][p.category] = counts["category"].get(p.category, 0) + 1
+        for key in REQ_KEYS:
+            if getattr(p, f"requires_{key}", False):
+                counts["req"][key] = counts["req"].get(key, 0) + 1
+    return counts, len(rows)
+
+
 @router.get("/", response_class=HTMLResponse)
 @router.get("/browse", response_class=HTMLResponse, include_in_schema=False)
 def browse_page(
@@ -78,43 +160,113 @@ def browse_page(
     tier: Annotated[str | None, Query()] = None,
     category: Annotated[str | None, Query()] = None,
     vendor: Annotated[str | None, Query()] = None,
+    req: Annotated[str | None, Query()] = None,
     sort: Annotated[str, Query()] = "trending",
+    view: Annotated[str | None, Query()] = None,
 ) -> HTMLResponse:
-    filters = ProfileFilters(q=q, tier=tier, category=category, vendor=vendor, sort=sort, limit=100)
+    req = req if req in REQ_KEYS else None
+    req_filter = {f"requires_{req}": True} if req else {}
+    filters = ProfileFilters(
+        q=q, tier=tier, category=category, vendor=vendor, sort=sort, limit=100, **req_filter
+    )
     profiles, total = list_profiles(db, filters)
+    logos = _vendor_logos(db, {p.vendor for p in profiles if p.vendor})
+
+    def t(key: str, **kw) -> str:
+        return _t(request, key, **kw)
+
     cards = [
         {
             "id": p.id,
             "name": p.name,
             "vendor": p.vendor,
             "category": p.category,
-            "icon": p.icon,
+            "icon_slug": _icon_slug(p),
+            "logo": logos.get(p.vendor or ""),
             "tier": p.tier,
             "review_status": p.review_status,
             "has_scripts": p.has_scripts,
-            "import_count": p.import_count,
             "download_count": p.download_count,
             "vote_score": p.vote_score,
             "tags": list(p.tags or []),
             "version_tag": latest_version_tag(p),
+            "updated": _fmt_date(p.updated_at),
+            "reqs": _req_chips(p, t),
         }
         for p in profiles
     ]
+    counts, total_all = _facet_counts(db)
+    # Ansicht: Query gewinnt, sonst Cookie, sonst Zeilen.
+    view = view if view in ("rows", "cards") else None
+    active_view = view or (
+        request.cookies.get("view") if request.cookies.get("view") in ("rows", "cards") else "rows"
+    )
     context = {
         "instance": instance,
         "version": VERSION,
         "profiles": cards,
         "total": total,
+        "total_all": total_all,
+        "counts": counts,
         "q": q or "",
         "active_tier": tier or "",
         "active_category": category or "",
         "active_vendor": vendor or "",
+        "active_req": req or "",
         "active_sort": sort if sort in SORT_OPTIONS else "trending",
         "sort_options": SORT_OPTIONS,
+        "req_keys": REQ_KEYS,
+        "view": active_view,
         "categories": _distinct_values(db, CommunityProfile.category),
         "vendors": _distinct_values(db, CommunityProfile.vendor),
     }
-    return templates.TemplateResponse(request, "browse.html", context)
+    response = templates.TemplateResponse(request, "browse.html", context)
+    if view:
+        response.set_cookie("view", view, max_age=60 * 60 * 24 * 365, path="/", samesite="lax")
+    return response
+
+
+_CHECK_GROUPS = (
+    ("agent", ("agent_",)),
+    ("snmp", ("snmp",)),
+    ("ssh", ("ssh_",)),
+    ("script", ("script", "plugin", "nagios", "custom")),
+    ("api", ("http_json", "api", "proxmox", "rest")),
+    (
+        "network",
+        (
+            "http",
+            "https",
+            "tcp",
+            "ping",
+            "dns",
+            "ssl",
+            "icmp",
+            "port",
+            "internet_line",
+            "smtp",
+            "imap",
+        ),
+    ),
+)
+
+
+def _group_checks(previews, t) -> list[tuple[str, list]]:
+    """Group check previews by execution family (Agent / SNMP / SSH / …).
+
+    Order = the order of ``_CHECK_GROUPS``; unknown types land in „Weitere".
+    """
+    buckets: dict[str, list] = {key: [] for key, _ in _CHECK_GROUPS}
+    buckets["other"] = []
+    for c in previews:
+        ctype = (c.check_type or "").lower()
+        for key, needles in _CHECK_GROUPS:
+            if any(needle in ctype for needle in needles):
+                buckets[key].append(c)
+                break
+        else:
+            buckets["other"].append(c)
+    return [(t(f"detail.group_{key}"), items) for key, items in buckets.items() if items]
 
 
 @router.get("/p/{profile_id}", response_class=HTMLResponse)
@@ -142,8 +294,6 @@ def detail_page(
             if uploader_instance is not None
             else VESANA_TEAM_UPLOADER
         )
-    # Server-render the comment thread read-only. The caller is the
-    # cookie-session instance (or None); my_vote/can_edit reflect that.
     caller_uuid = instance.uuid if instance is not None else None
     threads = list_thread(db, profile.id, caller_uuid)
     related_questions = list(
@@ -153,19 +303,70 @@ def detail_page(
             .order_by(Question.created_at.desc())
         ).scalars()
     )
+
+    def t(key: str, **kw) -> str:
+        return _t(request, key, **kw)
+
+    previews = check_preview_from_bundle(bundle)
+    versions = sorted(profile.versions or [], key=lambda v: v.created_at, reverse=True)
+    logos = _vendor_logos(db, {profile.vendor} if profile.vendor else set())
     context = {
         "instance": instance,
         "version": VERSION,
         "profile": profile,
         "uploader": uploader,
-        "check_preview": check_preview_from_bundle(bundle),
+        "check_groups": _group_checks(previews, t),
+        "check_count": len(previews),
         "current_version": current,
+        "versions": [
+            {
+                "version_tag": v.version_tag,
+                "is_current": v.is_current,
+                "date": _fmt_date(v.created_at),
+                "changelog_md": v.changelog_md,
+            }
+            for v in versions
+        ],
         "latest_version_tag": latest_version_tag(profile),
+        "updated": _fmt_date(profile.updated_at),
+        "reqs": _req_chips(profile, t),
+        "tile": {"icon_slug": _icon_slug(profile), "logo": logos.get(profile.vendor or "")},
         "now": datetime.now(UTC),
         "comment_threads": threads,
+        "comment_count": sum(1 + len(th.replies) for th in threads),
         "related_questions": related_questions,
     }
     return templates.TemplateResponse(request, "detail.html", context)
+
+
+@router.get("/icons", response_class=HTMLResponse)
+def icons_page(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    q: Annotated[str | None, Query(max_length=128)] = None,
+) -> HTMLResponse:
+    """Browse the icon library (the same data the instances pull via the API)."""
+    stmt = select(LibraryIcon).options(defer(LibraryIcon.body), defer(LibraryIcon.dark_body))
+    count_stmt = select(func.count()).select_from(LibraryIcon)
+    term = (q or "").strip()
+    if term:
+        like = f"%{term}%"
+        cond = or_(LibraryIcon.slug.ilike(like), LibraryIcon.name.ilike(like))
+        stmt = stmt.where(cond)
+        count_stmt = count_stmt.where(cond)
+    total = db.execute(count_stmt).scalar_one()
+    total_all = db.execute(select(func.count()).select_from(LibraryIcon)).scalar_one()
+    icons = list(db.execute(stmt.order_by(LibraryIcon.slug).limit(120)).scalars())
+    context = {
+        "instance": instance,
+        "version": VERSION,
+        "q": term,
+        "icons": [{"slug": i.slug, "name": i.name, "source": i.source} for i in icons],
+        "total": total,
+        "total_all": total_all,
+    }
+    return templates.TemplateResponse(request, "icons.html", context)
 
 
 @router.get("/p/{profile_id}/download")
