@@ -188,10 +188,15 @@ def _derive_connection_requirements(bundle: dict[str, Any]) -> dict[str, bool]:
                 snmp = True
             if check_type.startswith("ssh"):
                 ssh = True
-            if "{api_token}" in json.dumps(config):
-                api_token = True
             if isinstance(config, dict) and str(config.get("auth") or "").lower() == "device_api":
                 device_api = True
+            # 🔒 EINE Zugangsart: „braucht API-Zugang" umfasst Token-Platzhalter,
+            # Geräte-Konto (`auth: device_api`) und die vSphere-API (die liest
+            # Benutzer + Passwort am Host, ohne Platzhalter in der Config).
+            # Die Instanz-Seite führt beide Formen zu einem Feldpaar zusammen
+            # (Vesana Migration 268) — der Hub darf sie nicht wieder trennen.
+            if "{api_token}" in json.dumps(config) or device_api or check_type == "vsphere":
+                api_token = True
     return {"snmp": snmp, "ssh": ssh, "api_token": api_token, "device_api": device_api}
 
 

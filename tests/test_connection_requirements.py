@@ -41,8 +41,16 @@ def test_device_api_wird_erkannt():
         _bundle({"url": "https://{host}/api/core/system/status", "auth": "device_api"})
     )
     assert d["device_api"] is True
-    # Ein Konto ist kein Token — die zwei Bedarfe dürfen sich nicht vermischen.
-    assert d["api_token"] is False
+    # EINE Zugangsart: „braucht API-Zugang" gilt auch fürs Geräte-KONTO — die
+    # Instanz-Seite hat dafür ein Feldpaar, nicht zwei Formulare.
+    assert d["api_token"] is True
+
+
+def test_vsphere_braucht_api_zugang_ohne_platzhalter():
+    d = _derive_connection_requirements(
+        {"checks": [{"check_type": "vsphere", "check_config": {"metric": "cpu"}}]}
+    )
+    assert d["api_token"] is True
 
 
 def test_snmp_und_ssh_haengen_am_typ():
