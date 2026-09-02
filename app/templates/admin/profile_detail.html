@@ -38,7 +38,7 @@
         <label class="field span2"><span class="field__label">{{ t('admin.prof.f_tags') }}</span><input class="field__input" type="text" name="tags" value="{{ (profile.tags or []) | join(', ') }}" /><span class="field__hint">{{ t('admin.prof.f_tags_hint') }}</span></label>
         <label class="field span2"><span class="field__label">{{ t('detail.description') }}</span><textarea class="field__input" name="description_md" rows="6">{{ profile.description_md or '' }}</textarea></label>
         <fieldset class="field span2 checks-row"><legend class="field__label">{{ t('detail.requirements') }}</legend>
-          {% for k in ['agent','collector','snmp','ssh','api_token'] %}
+          {% for k in ['agent','collector','snmp','ssh','api_token','device_api'] %}
           <label class="check-opt"><input type="checkbox" name="requires_{{ k }}" {% if profile['requires_' ~ k] %}checked{% endif %} /><span>{{ t('reg.req_' ~ k) }}</span></label>
           {% endfor %}
           <span class="field__hint span2">{{ t('admin.prof.req_hint') }}</span>

@@ -52,6 +52,7 @@ def _to_summary(profile: CommunityProfile) -> ProfileSummary:
         requires_snmp=profile.requires_snmp,
         requires_ssh=profile.requires_ssh,
         requires_api_token=profile.requires_api_token,
+        requires_device_api=profile.requires_device_api,
         vesana_min_version=profile.vesana_min_version,
         latest_version_tag=latest_version_tag(profile),
         latest_version_id=profile.latest_version_id,

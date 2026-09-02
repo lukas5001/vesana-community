@@ -74,6 +74,8 @@ class ProfileSummary(BaseModel):
     requires_snmp: bool = False
     requires_ssh: bool = False
     requires_api_token: bool = False
+    # Geräte-API-KONTO (Benutzer + Passwort) — Migration 0012, Vesana #1497.
+    requires_device_api: bool = False
     vesana_min_version: str | None = None
     latest_version_tag: str | None = None
     # Id of the current version — a consumer (e.g. the Vesana import proxy) needs

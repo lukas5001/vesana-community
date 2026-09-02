@@ -577,6 +577,7 @@ EDITABLE_FIELDS = (
     "requires_snmp",
     "requires_ssh",
     "requires_api_token",
+    "requires_device_api",
 )
 
 
