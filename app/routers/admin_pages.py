@@ -345,6 +345,7 @@ def admin_profile_update(
     requires_snmp: Annotated[str | None, Form()] = None,
     requires_ssh: Annotated[str | None, Form()] = None,
     requires_api_token: Annotated[str | None, Form()] = None,
+    requires_device_api: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
     tag_list = [t.strip() for t in tags.replace(";", ",").split(",") if t.strip()] or None
     values = {
@@ -360,6 +361,7 @@ def admin_profile_update(
         "requires_snmp": requires_snmp == "on",
         "requires_ssh": requires_ssh == "on",
         "requires_api_token": requires_api_token == "on",
+        "requires_device_api": requires_device_api == "on",
     }
     changed = admin_service.update_profile(db, profile_id, values)
     profile = admin_service.get_profile_any(db, profile_id)

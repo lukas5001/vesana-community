@@ -165,26 +165,34 @@ def scan_scripts(bundle: dict[str, Any]) -> tuple[bool, list[dict[str, str]]]:
 
 def _derive_connection_requirements(bundle: dict[str, Any]) -> dict[str, bool]:
     """Ehrlicher Verbindungsbedarf aus den BUNDLE-CHECKS (nicht aus den mager
-    gepflegten profile-Metadaten): snmp* → SNMP, ssh* → SSH, http_json ODER ein
-    ``{api_token}``-Platzhalter in der check_config (z. B. plugin_local-Checks
-    wie Proxmox VE (API)) → API-Token. Speist die Bedarfs-Pills im
-    Host-Assistenten der Instanzen."""
-    snmp = ssh = api_token = False
+    gepflegten profile-Metadaten). Speist die Bedarfs-Pills im Host-Assistenten
+    der Instanzen: snmp* → SNMP, ssh* → SSH, ``{api_token}``-Platzhalter →
+    API-Token, ``auth: "device_api"`` → Geräte-API-KONTO.
+
+    🔒 **Der Bedarf steht in der check_config, NIE am Check-TYP.** Bis 09/2026
+    galt hier zusätzlich ``check_type == "http_json"`` als API-Token-Bedarf —
+    damit trug jedes Profil, das eine UNAUTHENTIFIZIERTE Geräte-API abfragt
+    (Sonos auf :1400), eine Token-Pille, und der Assistent klappte einen
+    Bereich auf, in den nichts gehört. Die Instanz-Seite hatte genau diese
+    Korrektur schon (`lib/checkNeeds.ts`), der Hub zog mit #1497 nach.
+    """
+    snmp = ssh = api_token = device_api = False
     checks = bundle.get("checks")
     if isinstance(checks, list):
         for check in checks:
             if not isinstance(check, dict):
                 continue
             check_type = str(check.get("check_type") or "")
+            config = check.get("check_config") or {}
             if check_type.startswith("snmp"):
                 snmp = True
             if check_type.startswith("ssh"):
                 ssh = True
-            if check_type == "http_json" or "{api_token}" in json.dumps(
-                check.get("check_config") or {}
-            ):
+            if "{api_token}" in json.dumps(config):
                 api_token = True
-    return {"snmp": snmp, "ssh": ssh, "api_token": api_token}
+            if isinstance(config, dict) and str(config.get("auth") or "").lower() == "device_api":
+                device_api = True
+    return {"snmp": snmp, "ssh": ssh, "api_token": api_token, "device_api": device_api}
 
 
 def _profile_fields_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
@@ -205,6 +213,7 @@ def _profile_fields_from_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "requires_snmp": bool(profile.get("requires_snmp", False)) or derived["snmp"],
         "requires_ssh": derived["ssh"],
         "requires_api_token": derived["api_token"],
+        "requires_device_api": derived["device_api"],
         "tags": list(tags) if isinstance(tags, list) else None,
     }
 

@@ -62,6 +62,11 @@ class CommunityProfile(Base):
     requires_api_token: Mapped[bool] = mapped_column(
         Boolean, server_default="false", nullable=False, default=False
     )
+    # Geräte-API-KONTO (Benutzer + Passwort, `auth: "device_api"`) — anderer
+    # Zugang als der Token, deshalb ein eigenes Flag (Migration 0012).
+    requires_device_api: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False, default=False
+    )
     # NULL for official/beta profiles; the instance uuid (no FK, re-seed safe).
     uploader_instance_uuid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     download_count: Mapped[int] = mapped_column(
