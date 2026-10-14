@@ -208,3 +208,45 @@ def test_entfernen_ist_weich_und_protokolliert(db_app_client):
 def test_unbekanntes_modul_ist_404(db_app_client):
     assert db_app_client.get("/api/v1/mibs/NOPE-MIB").status_code == 404
     assert db_app_client.get("/api/v1/mibs/..%2Fx").status_code == 404
+
+
+@requires_db
+def test_kurator_befehl_veroeffentlicht_ueber_denselben_dienst(db_app_client, monkeypatch, capsys):
+    import io
+    import json as _json
+
+    from app import publish_mib
+
+    eintrag = {
+        "directory": _directory(),
+        "license": "MikroTik — derived directory only",
+        "license_allows_source": False,
+        "checked_at": "2026-10-14",
+        "source_text": "MIKROTIK-MIB DEFINITIONS ::= BEGIN END",
+    }
+    kaputt = {
+        "directory": {"format": 1, "module": "bad name"},
+        "license": "x",
+        "checked_at": "2026-10-14",
+    }
+    monkeypatch.setattr("sys.stdin", io.StringIO(_json.dumps([eintrag, kaputt])))
+    rc = publish_mib.main(["--curator", "test"])
+    out = capsys.readouterr()
+    assert rc == 1 and "FEHLER" in out.err and "neu: MIKROTIK-MIB" in out.out
+    detail = db_app_client.get("/api/v1/mibs/MIKROTIK-MIB").json()
+    # Lizenz-Linie gilt auch hier: keine Beschreibungen, kein Text.
+    assert all(o.get("description") is None for o in detail["directory"]["objects"])
+    assert db_app_client.get("/api/v1/mibs/MIKROTIK-MIB/source").status_code == 404
+
+
+@requires_db
+def test_kurator_befehl_probelauf_speichert_nichts(db_app_client, monkeypatch):
+    import io
+    import json as _json
+
+    from app import publish_mib
+
+    eintrag = {"directory": _directory(), "license": "x", "checked_at": "2026-10-14"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(_json.dumps([eintrag])))
+    assert publish_mib.main(["--curator", "test", "--dry-run"]) == 0
+    assert db_app_client.get("/api/v1/mibs").json()["total"] == 0

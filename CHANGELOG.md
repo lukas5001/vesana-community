@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.1 — Kurator-Befehl für die MIB-Bibliothek
+
+- `python -m app.publish_mib --curator <name> [--dry-run] < eintraege.json`
+  legt Verzeichnisse über denselben Dienst ab wie die Admin-API
+  (Formatprüfung, Lizenz-Linie) und schreibt `mib.publish` ins
+  Admin-Protokoll. Nötig, weil die JSON-API bei aktivem zweiten Faktor nur ein
+  Bearer-Token annimmt.
+
 ## 0.12.0 — MIB-Bibliothek
 
 - Neue Tabelle `mib_modules` (Migration 0014): kuratierte Objekt-Verzeichnisse
