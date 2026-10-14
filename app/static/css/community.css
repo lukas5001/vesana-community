@@ -252,6 +252,8 @@ a.tag:hover{color:var(--brand-2);border-color:var(--brand-2)}
 .sbox p{font-size:13px;color:var(--text-2)}
 .sbox .steps{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:13px;color:var(--text-2);counter-reset:s}
 .sbox .steps li{position:relative;padding-left:22px}
+.sbox .mib-list{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:13px;color:var(--text-2)}
+.sbox .mib-list code{font-family:var(--mono);font-size:12px;color:var(--text-1);overflow-wrap:anywhere}
 .sbox .steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:10.5px;color:var(--brand-2)}
 .sbox .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px}
 .sbox .kv dt{color:var(--text-3)}
