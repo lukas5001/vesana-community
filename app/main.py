@@ -19,6 +19,7 @@ from app.routers import (
     community_interactions,
     health,
     icon_library,
+    mib_library,
     notifications,
     pages,
     profiles,
@@ -84,6 +85,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(profiles.router)
     app.include_router(icon_library.router)
+    app.include_router(mib_library.router)
     app.include_router(community_interactions.router)
     app.include_router(qa.router)
     app.include_router(uploads.router)

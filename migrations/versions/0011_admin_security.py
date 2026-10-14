@@ -63,9 +63,7 @@ def upgrade() -> None:
         ),
         schema=SCHEMA,
     )
-    op.create_index(
-        "ix_admin_audit_created", "admin_audit_log", ["created_at"], schema=SCHEMA
-    )
+    op.create_index("ix_admin_audit_created", "admin_audit_log", ["created_at"], schema=SCHEMA)
     op.create_index(
         "ix_admin_audit_target", "admin_audit_log", ["target_type", "target_id"], schema=SCHEMA
     )

@@ -33,6 +33,8 @@ from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
 from app.services import qa as qa_service
 from app.services import uploads as uploads_service
 from app.services.comments import author_display, create_comment, list_thread
+from app.services.mib_library import mib_refs_of_bundle
+from app.services.mib_library import search as mib_search
 from app.services.profiles import (
     SORT_OPTIONS,
     ProfileFilters,
@@ -309,6 +311,8 @@ def detail_page(
         return _t(request, key, **kw)
 
     previews = check_preview_from_bundle(bundle)
+    mib_refs = mib_refs_of_bundle(bundle)
+    known_mibs = {r.module for r in mib_search(db)} if mib_refs else set()
     versions = sorted(profile.versions or [], key=lambda v: v.created_at, reverse=True)
     logos = _vendor_logos(db, {profile.vendor} if profile.vendor else set())
     context = {
@@ -336,6 +340,7 @@ def detail_page(
         "comment_threads": threads,
         "comment_count": sum(1 + len(th.replies) for th in threads),
         "related_questions": related_questions,
+        "mibs": [{"module": m["module"], "available": m["module"] in known_mibs} for m in mib_refs],
     }
     return templates.TemplateResponse(request, "detail.html", context)
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.0 — MIB-Bibliothek
+
+- Neue Tabelle `mib_modules` (Migration 0014): kuratierte Objekt-Verzeichnisse
+  von MIB-Modulen (Format 1 des Vesana-Verzeichnisses, `app/mib_directory.py`
+  = Kopie von Vesanas `shared/mib/directory.py`). Instanzen holen sie, wenn
+  ein Profil sie verweist, wenn im Tab „MIBs" gesucht wird oder ein Scan einen
+  Hersteller-Zweig ohne lokale MIB trifft.
+- Öffentlich lesbar: `GET /api/v1/mibs` (Suche `q`, `enterprise`, `oid` =
+  sysObjectID), `GET /api/v1/mibs/{module}` (neueste Revision, ETag),
+  `GET /api/v1/mibs/{module}/source` (nur bei Lizenz mit Weitergabe).
+- Veröffentlichen nur über die Admin-API (`POST/DELETE /api/v1/admin/mibs`,
+  Admin-Protokoll `mib.publish`/`mib.remove`). Erlaubt die Lizenz keine
+  Weitergabe, entfernt der Hub Originaltext UND Beschreibungen vor dem
+  Speichern — auch wenn sie mitgeschickt werden.
+- Bundles dürfen `mibs: [{module, revision}]` tragen (höchstens 50 Verweise,
+  Form geprüft); die Profilseite nennt die MIBs eines Profils.
+
 ## 0.11.2 — Inline-Styles raus (CSP)
 
 - `style-src 'self'` verwirft `style="…"`-Attribute im Browser still — die

@@ -20,6 +20,7 @@ inline script ever appear. Findings surface in admin review and as a UI warning.
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -39,6 +40,8 @@ from app.telemetry_checks import strip_telemetry_checks
 # Maximum serialized bundle size. Bundles reference scripts by id, so they stay
 # small; a generous cap stops abuse without rejecting legitimate large profiles.
 MAX_BUNDLE_BYTES = 500 * 1024
+MAX_MIB_REFS = 50
+_MIB_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,127}$")
 
 BUNDLE_SCHEMA_VERSION = 1
 
@@ -87,6 +90,23 @@ def validate_bundle(bundle: Any) -> dict[str, Any]:
     checks = bundle.get("checks")
     if not isinstance(checks, list):
         raise _bad_request("bundle.checks must be a list")
+
+    # MIB-Verweise (Vesana-Plan mib-und-rate.md §2.5): additives Top-Level-
+    # Array, nur Verweise — die Verzeichnisse liegen in der MIB-Bibliothek.
+    # Ältere Instanzen kennen das Feld nicht und ignorieren es.
+    mibs = bundle.get("mibs")
+    if mibs is not None:
+        if not isinstance(mibs, list) or len(mibs) > MAX_MIB_REFS:
+            raise _bad_request(f"bundle.mibs must be a list of at most {MAX_MIB_REFS} references")
+        for ref in mibs:
+            if not isinstance(ref, dict) or set(ref) - {"module", "revision"}:
+                raise _bad_request("bundle.mibs entries must be {module, revision}")
+            module = ref.get("module")
+            revision = ref.get("revision")
+            if not isinstance(module, str) or not _MIB_NAME_RE.match(module):
+                raise _bad_request("bundle.mibs[].module must be a MIB module name")
+            if revision is not None and (not isinstance(revision, str) or len(revision) > 32):
+                raise _bad_request("bundle.mibs[].revision must be a string")
 
     # Agent telemetry never gets STORED again. It runs invisibly on every agent
     # host, so a hub bundle listing it only ever produced a wrong check count and

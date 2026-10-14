@@ -141,6 +141,15 @@
         {% if profile.has_scripts %}<dt>{{ t('detail.scripts') }}</dt><dd>{{ t('detail.scripts_included') }}</dd>{% endif %}
       </dl>
     </div>
+    {% if mibs %}
+    <div class="sbox">
+      <h3>{{ t('detail.mibs') }}</h3>
+      <ul class="mib-list">
+        {% for m in mibs %}<li><code>{{ m.module }}</code>{% if not m.available %} <span class="muted">· {{ t('detail.mib_missing') }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      <p class="muted">{{ t('detail.mibs_hint') }}</p>
+    </div>
+    {% endif %}
     <div class="sbox">
       <h3>{{ t('detail.numbers') }}</h3>
       <dl class="kv">

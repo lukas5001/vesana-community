@@ -44,6 +44,8 @@ ACTIONS = (
     "question.team",
     "answer.delete",
     "answer.team",
+    "mib.publish",
+    "mib.remove",
 )
 
 PER_PAGE = 50
