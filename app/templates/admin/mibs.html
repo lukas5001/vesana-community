@@ -1,0 +1,82 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.mibs.eyebrow') }}</p>
+    <h1>{{ t('admin.mibs.title') }}</h1>
+    <p class="lede">{{ t('admin.mibs.lede') }} <a href="/mibs">/mibs</a></p>
+  </div>
+</div>
+
+<div class="kpis kpis--4">
+  <div class="kpi"><span class="kpi__l">{{ t('admin.mibs.total') }}</span><span class="kpi__v">{{ overview.total }}</span></div>
+  <div class="kpi"><span class="kpi__l">{{ t('admin.mibs.objects') }}</span><span class="kpi__v">{{ overview.objects }}</span></div>
+  <div class="kpi"><span class="kpi__l">{{ t('admin.mibs.with_desc') }}</span><span class="kpi__v">{{ overview.with_descriptions }}</span></div>
+  <div class="kpi"><span class="kpi__l">{{ t('admin.mibs.missing_title') }}</span><span class="kpi__v">{{ overview.missing | length }}</span></div>
+</div>
+
+<div class="ad-cols ad-cols--wide">
+  <section>
+    <form class="ad-filters" method="get" action="/admin/mibs" data-tools>
+      <div class="tools">
+        <label class="search"><svg><use href="#i-search"/></svg><input type="search" name="q" value="{{ q }}" placeholder="{{ t('admin.mibs.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+        <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+      </div>
+    </form>
+    <div data-results>
+      {% if not overview["items"] %}<p class="empty">{{ t('admin.mibs.empty') }}</p>{% else %}
+      <div class="reg-wrap">
+      <table class="reg reg--admin">
+        <thead><tr>
+          <th>{{ t('admin.mibs.col_module') }}</th>
+          <th class="r">{{ t('admin.mibs.objects') }}</th>
+          <th>{{ t('admin.mibs.col_licence') }}</th>
+          <th class="r">{{ t('admin.mibs.col_used') }}</th>
+          <th>{{ t('admin.col.status') }}</th>
+          <th class="r">{{ t('admin.col.actions') }}</th>
+        </tr></thead>
+        <tbody>
+        {% for m in overview["items"] %}
+          <tr {% if m.removed %}class="row--removed"{% endif %}>
+            <td><a class="nm mono" href="/mibs/{{ m.module }}">{{ m.module }}</a><div class="vd">{{ m.organization or '—' }}{% if m.revision_date %} · {{ m.revision_date }}{% endif %}{% if m.enterprise %} · {{ m.enterprise }}{% endif %}</div></td>
+            <td class="r num">{{ m.object_count }}</td>
+            <td><span class="muted" title="{{ m.license }}">{{ m.license.split(' — ')[0] }}</span><div class="vd">{{ t('admin.mibs.checked', date=m.checked_at or '—', curator=m.curator) }}{% if m.has_source %} · {{ t('admin.mibs.source') }}{% endif %}</div></td>
+            <td class="r num">{{ m.used_by | length }}</td>
+            <td>{% if m.removed %}<span class="badge badge--rejected">{{ t('admin.mibs.removed') }}</span>{% elif m.descriptions_included %}<span class="badge badge--ok">{{ t('admin.mibs.full') }}</span>{% else %}<span class="badge">{{ t('admin.mibs.directory_only') }}</span>{% endif %}</td>
+            <td class="r">
+              {% if m.removed %}
+              <form method="post" action="/admin/mibs/{{ m.module }}/restore" class="inline">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ path }}?{{ request.url.query }}" /><button class="btn btn--ghost btn--sm btn--icon" type="submit" title="{{ t('admin.mibs.restore') }}" aria-label="{{ t('admin.mibs.restore') }}"><svg><use href="#a-undo"/></svg></button></form>
+              {% else %}
+              <form method="post" action="/admin/mibs/{{ m.module }}/remove" class="inline" data-confirm="{{ t('admin.mibs.remove_confirm', name=m.module, n=m.used_by | length) }}" data-confirm-ok="{{ t('admin.mibs.remove') }}">{% include "admin/_csrf.html" %}<input type="hidden" name="next" value="{{ path }}?{{ request.url.query }}" /><button class="btn btn--ghost btn--sm btn--icon" type="submit" title="{{ t('admin.mibs.remove') }}" aria-label="{{ t('admin.mibs.remove') }}"><svg><use href="#a-trash"/></svg></button></form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <aside class="ad-side-col">
+    <div class="panel">
+      <h3>{{ t('admin.mibs.missing_title') }}</h3>
+      {% if overview.missing %}
+      <ul class="plain">{% for m in overview.missing %}<li><code>{{ m.module }}</code> <span class="muted">· {% for p in m.used_by %}<a href="/admin/profiles/{{ p.id }}">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ t('admin.mibs.missing_none') }}</p>{% endif %}
+    </div>
+    <div class="panel">
+      <h3>{{ t('admin.mibs.no_refs_title') }}</h3>
+      <p class="muted">{{ t('admin.mibs.no_refs_lede') }}</p>
+      {% if overview.snmp_without_mibs %}<ul class="plain">{% for p in overview.snmp_without_mibs %}<li><a href="/admin/profiles/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="panel">
+      <h3>{{ t('admin.mibs.publish_title') }}</h3>
+      <p class="muted">{{ t('admin.mibs.publish_lede') }}</p>
+      <pre class="code code--cmd"><code>python -m app.publish_mib --curator &lt;name&gt; &lt; eintraege.json</code></pre>
+    </div>
+  </aside>
+</div>
+{% endblock %}

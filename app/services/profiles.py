@@ -14,6 +14,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.community_profile import CommunityProfile
+from app.models.community_profile_version import CommunityProfileVersion
 from app.services.ranking import trending_score
 
 # Tiers always visible without per-profile approval. Community-tier visibility
@@ -168,3 +169,46 @@ def latest_version_tag(profile: CommunityProfile) -> str | None:
     if profile.versions:
         return profile.versions[0].version_tag
     return None
+
+
+def profiles_by_mib(db: Session) -> dict[str, list[dict[str, str]]]:
+    """MIB-Modul → sichtbare Profile, deren AKTUELLE Version es nennt
+    (``bundle.mibs``). Speist die MIB-Seiten des Hubs („benutzt von …")."""
+    from app.services.mib_library import mib_refs_of_bundle
+
+    rows = db.execute(
+        select(CommunityProfile.id, CommunityProfile.name, CommunityProfileVersion.bundle_json)
+        .join(
+            CommunityProfileVersion,
+            (CommunityProfileVersion.profile_id == CommunityProfile.id)
+            & CommunityProfileVersion.is_current.is_(True),
+        )
+        .where(*_visibility_clause(), CommunityProfileVersion.bundle_json.has_key("mibs"))
+        .order_by(func.lower(CommunityProfile.name))
+    ).all()
+    out: dict[str, list[dict[str, str]]] = {}
+    for pid, name, bundle in rows:
+        for ref in mib_refs_of_bundle(bundle):
+            users = out.setdefault(ref["module"], [])
+            if not any(u["id"] == pid for u in users):
+                users.append({"id": pid, "name": name})
+    return out
+
+
+def snmp_profiles_without_mibs(db: Session) -> list[dict[str, str]]:
+    """Sichtbare SNMP-Profile, deren aktuelle Version KEINE MIB nennt — die
+    Kurator-Liste „hier fehlt vielleicht ein Verweis" (Standard-MIBs liefert
+    Vesana selbst mit, deshalb ist nicht jeder Eintrag ein Fehler)."""
+    rows = db.execute(
+        select(CommunityProfile.id, CommunityProfile.name, CommunityProfileVersion.bundle_json)
+        .join(
+            CommunityProfileVersion,
+            (CommunityProfileVersion.profile_id == CommunityProfile.id)
+            & CommunityProfileVersion.is_current.is_(True),
+        )
+        .where(*_visibility_clause(), CommunityProfile.requires_snmp.is_(True))
+        .order_by(func.lower(CommunityProfile.name))
+    ).all()
+    from app.services.mib_library import mib_refs_of_bundle
+
+    return [{"id": pid, "name": name} for pid, name, b in rows if not mib_refs_of_bundle(b)]

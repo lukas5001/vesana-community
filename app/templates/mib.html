@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{{ mib.module }} · {{ t('mibs.title') }} · Vesana Community{% endblock %}
+
+{% block content %}
+<nav class="path" aria-label="{{ t('nav.path') }}">
+  <a href="/mibs">{{ t('mibs.title') }}</a><i>/</i><b>{{ mib.module }}</b>
+</nav>
+
+<div class="lead">
+  <div>
+    <h1 class="mono">{{ mib.module }}</h1>
+    <div class="meta">
+      <span>{{ mib.organization or '—' }}</span>
+      <span class="dot">·</span><span class="mono">{{ mib.enterprise or t('mibs.standard') }}</span>
+      {% if mib.revision_date %}<span class="dot">·</span><span>{{ t('mib.revision') }} <span class="num">{{ mib.revision_date }}</span></span>{% endif %}
+      <span class="dot">·</span>{% if mib.descriptions_included %}<span class="badge badge--ok">{{ t('mibs.full') }}</span>{% else %}<span class="badge">{{ t('mibs.directory_only') }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="cnt"><b>{{ objects.total_all }}</b>{{ t('mib.objects') }}</div>
+</div>
+
+<div class="playout">
+  <div>
+    <form method="get" action="/mibs/{{ mib.module }}" data-tools>
+      <div class="tools">
+        <label class="search"><svg><use href="#i-search"/></svg>
+          <input type="search" name="q" value="{{ q }}" placeholder="{{ t('mib.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+        <span class="sel"><span class="sel-l">{{ t('mib.kind') }}</span>
+          <select name="kind" aria-label="{{ t('mib.kind') }}">
+            <option value="">{{ t('common.all') }} ({{ objects.total_all }})</option>
+            {% for k in kinds %}{% if objects.kind_counts[k] %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ lbl('mibfilter', k) }} ({{ objects.kind_counts[k] }})</option>{% endif %}{% endfor %}
+          </select><svg><use href="#i-chev"/></svg></span>
+        <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+      </div>
+    </form>
+
+    <div data-results>
+    {% if objects.items %}
+    <div class="reg-wrap">
+    <table class="reg reg--mib">
+      <thead><tr>
+        <th>{{ t('mib.col_name') }}</th>
+        <th>{{ t('mib.col_oid') }}</th>
+        <th>{{ t('mib.col_type') }}</th>
+        <th>{{ t('mib.col_values') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for o in objects.items %}
+        <tr>
+          <td>
+            <span class="nm mono">{{ o.name }}</span>
+            <div class="vd">{{ lbl('mibkind', o.kind) }}{% if o.access %} · {{ o.access }}{% endif %}{% if o.status in ('deprecated', 'obsolete') %} · <span class="badge badge--warn">{{ o.status }}</span>{% endif %}</div>
+            {% if o.description %}<details class="mib-desc"><summary>{{ t('mib.description') }}</summary><p>{{ o.description }}</p></details>{% endif %}
+          </td>
+          <td class="mono oid">{{ o.oid }}<button type="button" class="copy" data-copy="{{ o.oid }}" data-copied="{{ t('icons.copied') }}">{{ t('mib.copy') }}</button></td>
+          <td class="mono">{{ o.type or '—' }}{% if o.units %}<div class="vd">{{ o.units }}</div>{% endif %}</td>
+          <td class="enum">
+            {% if o.enum %}
+              {% if o.enum_more %}
+              <details><summary>{% for e in o.enum_preview %}<span><b class="num">{{ e.value }}</b> {{ e.label }}</span>{% endfor %} <span class="muted">{{ t('mibs.more', n=o.enum_more) }}</span></summary>
+                {% for e in o.enum[o.enum_preview | length:] %}<span><b class="num">{{ e.value }}</b> {{ e.label }}</span>{% endfor %}
+              </details>
+              {% else %}{% for e in o.enum %}<span><b class="num">{{ e.value }}</b> {{ e.label }}</span>{% endfor %}{% endif %}
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="reg-foot">
+      <span>{{ t('mib.count', n=objects.items | length, total=objects.total) }}{% if objects.pages > 1 %} · {{ t('mib.page', page=objects.page, pages=objects.pages) }}{% endif %}</span>
+      <span>{% if prev_href %}<a href="{{ prev_href }}">← {{ t('mib.prev') }}</a>{% endif %}{% if prev_href and next_href %} · {% endif %}{% if next_href %}<a href="{{ next_href }}">{{ t('mib.next') }} →</a>{% endif %}</span>
+    </p>
+    {% else %}
+    <p class="empty">{{ t('mib.empty') }}</p>
+    {% endif %}
+    </div>
+  </div>
+
+  <aside class="pside">
+    <div class="sbox">
+      <h3>{{ t('mibs.use_title') }}</h3>
+      <ol class="steps">
+        <li>{{ t('mibs.use_1') }}</li>
+        <li>{{ t('mibs.use_2') }}</li>
+        <li>{{ t('mibs.use_3') }}</li>
+      </ol>
+      <p class="muted"><a href="{{ t('mibs.docs_url') }}">{{ t('mibs.docs') }}</a></p>
+    </div>
+    <div class="sbox">
+      <h3>{{ t('mibs.col_used_by') }}</h3>
+      {% if mib.used_by %}<ul class="mib-list">{% for p in mib.used_by %}<li><a href="/p/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ t('mib.no_profiles') }}</p>{% endif %}
+    </div>
+    <div class="sbox">
+      <h3>{{ t('mib.licence') }}</h3>
+      <p>{{ mib.license }}</p>
+      <dl class="kv">
+        <dt>{{ t('mib.checked') }}</dt><dd class="num">{{ mib.checked_at or '—' }}</dd>
+        {% if mib.revision %}<dt>{{ t('mib.revision') }}</dt><dd class="num">{{ mib.revision }}</dd>{% endif %}
+      </dl>
+      {% if mib.has_source %}<a class="btn btn--ghost btn--sm" href="/api/v1/mibs/{{ mib.module }}/source" download="{{ mib.module }}.mib"><svg><use href="#i-dl"/></svg>{{ t('mib.download') }}</a>
+      {% else %}<p class="muted">{{ t('mib.no_source') }}</p>{% endif %}
+      {% if mib.source_url and (mib.source_url.startswith("https://") or mib.source_url.startswith("http://")) %}<p class="muted"><a href="{{ mib.source_url }}" rel="noopener noreferrer nofollow">{{ t('mib.source') }}</a></p>{% endif %}
+    </div>
+    {% if imports %}
+    <div class="sbox">
+      <h3>{{ t('mib.imports') }}</h3>
+      <ul class="mib-list">{% for m in imports %}<li>{% if m in known_modules %}<a href="/mibs/{{ m }}"><code>{{ m }}</code></a>{% else %}<code>{{ m }}</code>{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

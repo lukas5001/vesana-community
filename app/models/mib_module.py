@@ -23,7 +23,7 @@ from typing import Any
 
 from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
 from app.db import Base
 
@@ -48,6 +48,9 @@ class MibModule(Base):
     object_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     descriptions_included: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Liegt der Originaltext wirklich vor? Als SQL-Ausdruck, damit Listen den
+    # (großen) Text nicht laden müssen, um „herunterladbar" zu sagen.
+    has_source_text: Mapped[bool] = column_property(source_text.isnot(None))
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
 
     license: Mapped[str] = mapped_column(String(200), nullable=False)
