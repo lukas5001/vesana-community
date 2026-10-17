@@ -342,6 +342,34 @@ a.tag:hover{color:var(--brand-2);border-color:var(--brand-2)}
 .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--hair)}
 
 /* ---- Mobil ---------------------------------------------------------------- */
+/* ---- MIB-Bibliothek ------------------------------------------------------- */
+.lead .meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--text-2)}
+.lead .meta .dot{color:var(--hair-2)}
+.lead h1.mono{font-family:var(--mono);font-size:clamp(1.25rem,2.2vw,1.6rem);overflow-wrap:anywhere}
+h2.sub{font-size:1rem;margin:22px 0 4px}
+.reg--mib td{vertical-align:top}
+.reg--mib td:first-child{min-width:13rem}
+.reg--mib .nm.mono{font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}
+.reg--mib td.oid{font-size:12px;color:var(--text-2);word-break:break-all}
+.reg--mib td.used{font-size:12.5px;color:var(--text-2)}
+.reg--mib td.used a{color:var(--text-1);text-decoration:none}
+.reg--mib td.used a:hover{color:var(--brand-2)}
+.reg--mib .copy{margin-left:6px;border:1px solid var(--hair);border-radius:3px;background:transparent;color:var(--text-3);font-family:var(--mono);font-size:10px;padding:0 5px;cursor:pointer;vertical-align:1px}
+.reg--mib .copy:hover{border-color:var(--brand-2);color:var(--brand-2)}
+.reg--mib .copy.done{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.reg--mib td.enum{font-size:12px;color:var(--text-2)}
+.reg--mib td.enum span{display:inline-block;margin:0 10px 2px 0;white-space:nowrap}
+.reg--mib td.enum b{font-weight:500;color:var(--text-1)}
+.reg--mib td.enum summary{cursor:pointer;list-style:none}
+.reg--mib td.enum summary::-webkit-details-marker{display:none}
+.mib-desc{margin-top:4px;font-size:12.5px;color:var(--text-2)}
+.mib-desc summary{cursor:pointer;color:var(--text-3);font-family:var(--mono);font-size:11px}
+.mib-desc p{margin:4px 0 0;white-space:pre-line;max-width:72ch}
+.reg-foot a{color:var(--text-2)}
+.sbox .mib-list a{color:var(--text-1);text-decoration:underline dotted var(--hair-2);text-underline-offset:3px}
+.sbox .mib-list a:hover{color:var(--brand-2)}
+.sbox p a{color:var(--text-1)}
+
 @media (max-width:760px){
   .hdr .wrap{gap:12px 16px}
   .nav{order:3;width:100%;gap:14px;overflow-x:auto;padding-bottom:2px}
@@ -363,6 +391,9 @@ a.tag:hover{color:var(--brand-2);border-color:var(--brand-2)}
   .reg td.ver,.reg td.r{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--text-3)}
   .reg td.r::before{content:"·";margin:0 6px;color:var(--hair-2)}
   .reg td.go{display:none}
+  .reg--mib tr{padding-left:12px}
+  .reg--mib td{margin-top:4px}
+  .reg--mib td:first-child{margin-top:0}
   .reg tbody tr:hover td{background:transparent}
   .vers li{grid-template-columns:1fr;gap:4px}
   .qrow{grid-template-columns:52px 1fr}

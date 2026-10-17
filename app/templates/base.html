@@ -23,6 +23,7 @@
           <a href="/" {% if path == '/' or path.startswith('/browse') or path.startswith('/p/') %}aria-current="page"{% endif %}>{{ t('nav.profiles') }}</a>
           <a href="/questions" {% if path.startswith('/questions') %}aria-current="page"{% endif %}>{{ t('nav.qa') }}</a>
           <a href="/icons" {% if path.startswith('/icons') %}aria-current="page"{% endif %}>{{ t('nav.icons') }}</a>
+          <a href="/mibs" {% if path.startswith('/mibs') %}aria-current="page"{% endif %}>{{ t('nav.mibs') }}</a>
           <a href="/upload" {% if path.startswith('/upload') %}aria-current="page"{% endif %}>{{ t('nav.upload') }}</a>
         </nav>{% endif %}
         <div class="hdr-r">

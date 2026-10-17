@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -30,6 +31,7 @@ from app.models.instance import Instance
 from app.models.library_icon import LibraryIcon
 from app.models.question import Question
 from app.schemas import VESANA_TEAM_UPLOADER, check_preview_from_bundle
+from app.services import mib_library
 from app.services import qa as qa_service
 from app.services import uploads as uploads_service
 from app.services.comments import author_display, create_comment, list_thread
@@ -41,6 +43,7 @@ from app.services.profiles import (
     get_profile,
     latest_version_tag,
     list_profiles,
+    profiles_by_mib,
 )
 from app.services.voting import cast_vote
 from app.templating import templates
@@ -373,6 +376,80 @@ def icons_page(
         "total_all": total_all,
     }
     return templates.TemplateResponse(request, "icons.html", context)
+
+
+def _mib_row(row, users: dict[str, list[dict[str, str]]]) -> dict:
+    s = mib_library.summary(row)
+    return {
+        **s,
+        "revision_date": mib_library.revision_date(row.revision),
+        "used_by": users.get(row.module, []),
+    }
+
+
+@router.get("/mibs", response_class=HTMLResponse)
+def mibs_page(
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    q: Annotated[str | None, Query(max_length=128)] = None,
+) -> HTMLResponse:
+    """MIB-Bibliothek für Menschen: dieselben Daten, die Instanzen über
+    ``/api/v1/mibs`` holen — welche Hersteller abgedeckt sind, welches Profil
+    welche MIB nennt, und in welcher MIB ein Objekt steht."""
+    term = (q or "").strip()
+    users = profiles_by_mib(db)
+    all_rows = mib_search(db)
+    rows = mib_search(db, q=term) if term else all_rows
+    known = {r.module for r in all_rows}
+    context = {
+        "instance": instance,
+        "version": VERSION,
+        "q": term,
+        "mibs": [_mib_row(r, users) for r in rows],
+        "total_all": len(all_rows),
+        "objects": mib_library.search_objects(db, term) if term else [],
+        "object_limit": mib_library.OBJECT_SEARCH_LIMIT,
+        # Profile nennen sie, die Bibliothek hat sie (noch) nicht — ehrlich sagen.
+        "missing": sorted(m for m in users if m not in known),
+    }
+    return templates.TemplateResponse(request, "mibs.html", context)
+
+
+@router.get("/mibs/{module}", response_class=HTMLResponse)
+def mib_page(
+    module: str,
+    request: Request,
+    db: DbDep,
+    instance: SessionInstance,
+    q: Annotated[str | None, Query(max_length=128)] = None,
+    kind: Annotated[str | None, Query(max_length=16)] = None,
+    page: Annotated[int, Query(ge=1, le=10_000)] = 1,
+) -> HTMLResponse:
+    row = mib_library.get_module(db, module)  # 404 für unbekannt/entfernt
+    kind = kind if kind in mib_library.KIND_FILTERS else ""
+    objects = mib_library.object_page(row.directory, q=q, kind=kind, page=page)
+
+    def page_href(n: int) -> str:
+        params = {k: v for k, v in (("q", (q or "").strip()), ("kind", kind)) if v}
+        params["page"] = str(n)
+        return f"/mibs/{row.module}?" + "&".join(f"{k}={quote(v)}" for k, v in params.items())
+
+    directory = row.directory or {}
+    context = {
+        "instance": instance,
+        "version": VERSION,
+        "mib": _mib_row(row, profiles_by_mib(db)),
+        "imports": [m for m in directory.get("imports") or [] if isinstance(m, str)],
+        "known_modules": {r.module for r in mib_search(db)},
+        "objects": objects,
+        "q": (q or "").strip(),
+        "kind": kind,
+        "kinds": list(mib_library.KIND_FILTERS),
+        "prev_href": page_href(objects.page - 1) if objects.page > 1 else None,
+        "next_href": page_href(objects.page + 1) if objects.page < objects.pages else None,
+    }
+    return templates.TemplateResponse(request, "mib.html", context)
 
 
 @router.get("/p/{profile_id}/download")

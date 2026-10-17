@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.13.0 — MIB-Bibliothek auf der Seite
+
+- Neue Seite **MIBs** (`/mibs`, Menüpunkt): alle Module der Bibliothek mit
+  Hersteller-Zweig, Objektzahl, Inhalt (mit Beschreibungen / nur
+  Verzeichnis) und den Profilen, die sie nennen. Die Suche findet Module UND
+  Objekte („in welcher MIB steht upsAdvBatteryCapacity?", auch per OID).
+  Profile nennen MIBs, die die Bibliothek nicht hat ⇒ eigener Kasten.
+- Modulseite `/mibs/{modul}`: Objekte mit OID (kopierbar), Art, Typ, Einheit
+  und Wertelisten; Filter nach Art, Suche, Blättern (200 je Seite);
+  Lizenz, Prüfdatum, Bezugsquelle, Original-Download nur bei erlaubender
+  Lizenz; wie man die MIB in Vesana nutzt.
+- Profilseite verlinkt ihre MIBs.
+- `has_source` in der API stimmt jetzt: erlaubt die Lizenz den Text, liegt
+  aber keiner vor, versprach die Liste einen Download, den `/source` mit 404
+  beantwortete.
+- Admin: Reiter **MIBs** — Bestand inkl. entfernter Module, Entfernen und
+  Wiederherstellen (Admin-Protokoll `mib.remove`/`mib.restore`), genannte
+  aber fehlende MIBs, SNMP-Profile ohne MIB-Verweis, Kurator-Befehl.
+- Öffentlicher MIB-Upload bleibt bewusst aus (Hersteller-Lizenzen); die Seite
+  sagt das und verweist auf den Upload in der eigenen Instanz bzw. Q&A.
+
 ## 0.12.1 — Kurator-Befehl für die MIB-Bibliothek
 
 - `python -m app.publish_mib --curator <name> [--dry-run] < eintraege.json`

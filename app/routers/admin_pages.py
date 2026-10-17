@@ -50,6 +50,7 @@ SECTIONS = (
     ("questions", "/admin/questions", "message"),
     ("instances", "/admin/instances", "users"),
     ("icons", "/admin/icons", "image"),
+    ("mibs", "/admin/mibs", "tag"),
     ("audit", "/admin/audit", "list"),
     ("security", "/admin/security", "shield"),
 )
@@ -911,6 +912,71 @@ def admin_icons(
         pager=_pager(request, result),
     )
     return templates.TemplateResponse(request, "admin/icons.html", context)
+
+
+# ---- MIBs ------------------------------------------------------------------------
+
+
+@router.get("/admin/mibs", response_class=HTMLResponse)
+def admin_mibs(request: Request, admin: AdminUser, db: DbDep, q: str | None = None) -> HTMLResponse:
+    from app.services import mib_library
+
+    context = _ctx(
+        request, db, "mibs", overview=mib_library.admin_overview(db, q=q or None), q=q or ""
+    )
+    return templates.TemplateResponse(request, "admin/mibs.html", context)
+
+
+@router.post("/admin/mibs/{module}/remove")
+def admin_mib_remove(
+    module: str,
+    request: Request,
+    admin: AdminUser,
+    db: DbDep,
+    _csrf: Csrf,
+    next: Annotated[str | None, Form()] = None,
+) -> RedirectResponse:
+    from app.services import mib_library
+
+    rows = mib_library.remove(db, module, None)
+    _log(
+        request,
+        db,
+        admin,
+        "mib.remove",
+        target_type="mib",
+        target_id=f"{module}@*",
+        summary=f"{module}: {len(rows)} revision(s) removed",
+    )
+    db.commit()
+    _flash(request, "ok", "admin.flash.mib_removed", name=module)
+    return _back(next, "/admin/mibs")
+
+
+@router.post("/admin/mibs/{module}/restore")
+def admin_mib_restore(
+    module: str,
+    request: Request,
+    admin: AdminUser,
+    db: DbDep,
+    _csrf: Csrf,
+    next: Annotated[str | None, Form()] = None,
+) -> RedirectResponse:
+    from app.services import mib_library
+
+    rows = mib_library.restore(db, module)
+    _log(
+        request,
+        db,
+        admin,
+        "mib.restore",
+        target_type="mib",
+        target_id=f"{module}@*",
+        summary=f"{module}: {len(rows)} revision(s) restored",
+    )
+    db.commit()
+    _flash(request, "ok", "admin.flash.mib_restored", name=module)
+    return _back(next, "/admin/mibs")
 
 
 # ---- Protokoll -------------------------------------------------------------------

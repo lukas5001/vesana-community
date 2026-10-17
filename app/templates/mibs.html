@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('mibs.title') }} · Vesana Community{% endblock %}
+
+{% block content %}
+<div class="lead">
+  <div><p class="eyebrow">{{ t('mibs.eyebrow') }}</p><h1>{{ t('mibs.title') }}</h1></div>
+  <div class="cnt"><b>{{ total_all }}</b>{{ t('mibs.entries') }}</div>
+</div>
+<p class="lede">{{ t('mibs.lede') }}</p>
+
+<div class="playout">
+  <div>
+    <form method="get" action="/mibs" data-tools>
+      <div class="tools">
+        <label class="search"><svg><use href="#i-search"/></svg>
+          <input type="search" name="q" value="{{ q }}" placeholder="{{ t('mibs.search_ph') }}" aria-label="{{ t('common.search') }}" autocomplete="off" /></label>
+        <noscript><button class="btn btn--ghost" type="submit">{{ t('common.search') }}</button></noscript>
+      </div>
+    </form>
+
+    <div data-results>
+    {% if objects %}
+    <h2 class="sub">{{ t('mibs.objects_title') }}</h2>
+    <div class="reg-wrap">
+    <table class="reg reg--mib">
+      <thead><tr>
+        <th>{{ t('mib.col_name') }}</th>
+        <th>{{ t('mibs.col_module') }}</th>
+        <th>{{ t('mib.col_oid') }}</th>
+        <th>{{ t('mib.col_type') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for o in objects %}
+        <tr>
+          <td><a class="nm mono" href="/mibs/{{ o.module }}?q={{ o.name | urlencode }}">{{ o.name }}</a></td>
+          <td class="mono">{{ o.module }}</td>
+          <td class="mono oid">{{ o.oid }}</td>
+          <td class="mono">{{ o.type or lbl('mibkind', o.kind) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if objects | length >= object_limit %}<p class="reg-foot"><span>{{ t('mibs.objects_refine', n=object_limit) }}</span></p>{% endif %}
+    <h2 class="sub">{{ t('mibs.modules_title') }}</h2>
+    {% endif %}
+
+    {% if mibs %}
+    <div class="reg-wrap">
+    <table class="reg reg--mib">
+      <thead><tr>
+        <th>{{ t('mibs.col_module') }}</th>
+        <th>{{ t('mibs.col_vendor') }}</th>
+        <th class="ta-r">{{ t('mibs.col_objects') }}</th>
+        <th>{{ t('mibs.col_content') }}</th>
+        <th>{{ t('mibs.col_used_by') }}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+      {% for m in mibs %}
+        <tr>
+          <td><a class="nm mono" href="/mibs/{{ m.module }}">{{ m.module }}</a><div class="vd">{{ m.organization or '—' }}{% if m.revision_date %} · {{ m.revision_date }}{% endif %}</div></td>
+          <td class="mono">{{ m.enterprise or t('mibs.standard') }}</td>
+          <td class="r num">{{ m.object_count }}</td>
+          <td>{% if m.descriptions_included %}<span class="badge badge--ok">{{ t('mibs.full') }}</span>{% else %}<span class="badge">{{ t('mibs.directory_only') }}</span>{% endif %}</td>
+          <td class="used">{% if m.used_by %}{% for p in m.used_by[:2] %}<a href="/p/{{ p.id }}">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% if m.used_by | length > 2 %} {{ t('mibs.more', n=m.used_by | length - 2) }}{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="go"><a href="/mibs/{{ m.module }}" aria-label="{{ m.module }}">→</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="reg-foot"><span>{{ t('mibs.count', n=mibs | length, total=total_all) }}</span></p>
+    {% elif not objects %}
+    <p class="empty">{{ t('mibs.empty') }}</p>
+    {% endif %}
+    </div>
+  </div>
+
+  <aside class="pside">
+    <div class="sbox">
+      <h3>{{ t('mibs.use_title') }}</h3>
+      <ol class="steps">
+        <li>{{ t('mibs.use_1') }}</li>
+        <li>{{ t('mibs.use_2') }}</li>
+        <li>{{ t('mibs.use_3') }}</li>
+      </ol>
+      <p class="muted"><a href="{{ t('mibs.docs_url') }}">{{ t('mibs.docs') }}</a></p>
+    </div>
+    <div class="sbox">
+      <h3>{{ t('mibs.own_title') }}</h3>
+      <p>{{ t('mibs.own_lede') }}</p>
+      <p class="muted">{{ t('mibs.own_hub') }}</p>
+      {% if current_instance %}<a class="btn btn--ghost btn--sm" href="/questions/ask">{{ t('mibs.request') }}</a>{% endif %}
+    </div>
+    {% if missing %}
+    <div class="sbox">
+      <h3>{{ t('mibs.missing_title') }}</h3>
+      <ul class="mib-list">{% for m in missing %}<li><code>{{ m }}</code></li>{% endfor %}</ul>
+      <p class="muted">{{ t('mibs.missing_lede') }}</p>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
