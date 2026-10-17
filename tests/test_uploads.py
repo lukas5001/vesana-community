@@ -165,14 +165,25 @@ def test_upload_creates_pending_community_profile(db_app_client, make_login_jwt)
 
 
 @requires_db
-def test_uploaded_profile_appears_in_browse_with_pending_flag(db_app_client, make_login_jwt):
+def test_uploaded_profile_is_hidden_until_approved(db_app_client, make_login_jwt):
+    # Supply-chain hardening (2026-10-17): a fresh community upload is NOT
+    # browseable or downloadable until an admin approves it. (The admin review
+    # queue still lists it — see test_review_queue_lists_pending_upload.)
     headers = _bearer(db_app_client, make_login_jwt, str(uuid.uuid4()))
     created = db_app_client.post(
         "/api/v1/profiles/upload", json={"bundle": _bundle()}, headers=headers
     ).json()
+    pid = created["profile_id"]
+
     listing = db_app_client.get("/api/v1/profiles").json()
-    match = next(p for p in listing["items"] if p["id"] == created["profile_id"])
-    assert match["review_status"] == "pending"
+    assert all(p["id"] != pid for p in listing["items"])
+    assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 404
+
+    db_app_client.post(f"/api/v1/admin/review/{pid}/approve", headers=ADMIN_HEADER)
+
+    listing = db_app_client.get("/api/v1/profiles").json()
+    match = next(p for p in listing["items"] if p["id"] == pid)
+    assert match["review_status"] == "approved"
     assert match["tier"] == "community"
 
 
@@ -197,8 +208,13 @@ def test_reupload_same_name_vendor_versions_the_profile(db_app_client, make_logi
     second_body = second.json()
     assert second_body["profile_id"] == first["profile_id"]
     assert second_body["version_id"] != first["version_id"]
+    # A new version resets the whole profile to pending (and thus hides it) until
+    # an admin re-approves — fail-closed against a poisoned v2 push.
     assert second_body["review_status"] == "pending"
 
+    # Approve so the public /versions endpoint is reachable, then verify the
+    # versioning itself (v2 is current, both versions kept).
+    db_app_client.post(f"/api/v1/admin/review/{first['profile_id']}/approve", headers=ADMIN_HEADER)
     versions = db_app_client.get(f"/api/v1/profiles/{first['profile_id']}/versions").json()
     assert len(versions) == 2
     current = [v for v in versions if v["is_current"]]

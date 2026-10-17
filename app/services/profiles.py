@@ -52,16 +52,28 @@ def clamp_limit(limit: int | None) -> int:
 def _visibility_clause():
     """Profiles a self-hoster may see.
 
-    Visible: curated tiers (official/beta) OR any non-rejected profile (community
-    uploads are immediately visible while ``review_status`` is 'pending' and
-    carry a "waiting for review" badge; only 'rejected' and removed profiles are
-    hidden). ``review_status`` is the source of truth here (C3).
+    Visible: curated tiers (official/beta) OR a community upload that an admin
+    has APPROVED. A community profile stays hidden while ``review_status`` is
+    'pending' (never reviewed) or 'rejected', and so do all of its versions and
+    its bundle (every reader — browse, detail, versions, bundle download, MIB
+    pages — funnels through this clause via ``_base_select``/``get_profile``).
+
+    Why approval and not merely "not rejected" (supply-chain hardening,
+    2026-10-17): any registered instance may upload, the upload scanner is
+    advisory and never blocks, and a bundle carries script bodies that run as
+    SYSTEM / over SSH on the instances that import it. Showing an unreviewed
+    upload — and serving its bundle — made the hub a self-service delivery
+    channel for malicious content before any human looked at it. ``review_status``
+    is profile-wide and a new version resets it to 'pending' (see
+    ``uploads.create_or_version_profile``), so pushing a poisoned v2 onto an
+    already-approved profile takes the WHOLE profile offline until an admin
+    re-approves it — fail-closed, by design.
     """
     return (
         CommunityProfile.is_removed.is_(False),
         or_(
             CommunityProfile.tier.in_(VISIBLE_TIERS),
-            CommunityProfile.review_status != "rejected",
+            CommunityProfile.review_status == "approved",
         ),
     )
 

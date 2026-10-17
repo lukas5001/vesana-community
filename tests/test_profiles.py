@@ -153,6 +153,7 @@ def _make_profile(
     import_count: int = 0,
     download_count: int = 0,
     approved: bool = True,
+    review_status: str = "approved",
     updated_at: datetime | None = None,
     created_at: datetime | None = None,
     version_tag: str = "1.0.0",
@@ -170,6 +171,7 @@ def _make_profile(
         import_count=import_count,
         download_count=download_count,
         approved=approved,
+        review_status=review_status,
         tags=["sample"],
     )
     if created_at is not None:
@@ -338,6 +340,78 @@ def test_bundle_404_for_unknown_version(db_app_client) -> None:
 
     r = db_app_client.get(f"/api/v1/profiles/{pid}/versions/nope/bundle")
     assert r.status_code == 404
+
+
+@requires_db
+def test_pending_community_upload_is_not_browseable(db_app_client) -> None:
+    # Supply-chain hardening (2026-10-17): an unreviewed community upload must
+    # NOT appear in the public catalog. Any instance may upload and the scanner
+    # never blocks, so "visible while pending" let anyone list malicious content.
+    def rows(db):
+        _make_profile(db, name="Approved Com", tier="community", review_status="approved")
+        _make_profile(db, name="Pending Com", tier="community", review_status="pending")
+        _make_profile(db, name="Rejected Com", tier="community", review_status="rejected")
+
+    _seed(rows)
+
+    body = db_app_client.get("/api/v1/profiles", params={"limit": 100}).json()
+    names = {item["name"] for item in body["items"]}
+    assert names == {"Approved Com"}
+    assert body["total"] == 1
+
+
+@requires_db
+def test_pending_community_detail_and_bundle_are_404(db_app_client) -> None:
+    # The sharp end of the hole: the bundle endpoint served raw script bodies of
+    # any version of a visible profile. A pending profile must be invisible AND
+    # its bundle unreachable (detail + versions + bundle all 404).
+    pid, vid = _seed(
+        lambda db: _make_profile(
+            db, name="Poison Pending", tier="community", review_status="pending"
+        )
+    )
+
+    assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 404
+    assert db_app_client.get(f"/api/v1/profiles/{pid}/versions").status_code == 404
+    assert db_app_client.get(f"/api/v1/profiles/{pid}/versions/{vid}/bundle").status_code == 404
+
+
+@requires_db
+def test_approving_a_community_upload_makes_it_visible(db_app_client) -> None:
+    # Fail-closed, then opened by review: once an admin approves, browse/detail/
+    # bundle all work again — the same seam the review workflow flips.
+    pid, vid = _seed(
+        lambda db: _make_profile(
+            db, name="Later Approved", tier="community", review_status="pending"
+        )
+    )
+    assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 404
+
+    from app.db import SessionLocal
+    from app.services.uploads import approve
+
+    with SessionLocal() as db:
+        approve(db, pid)
+        db.commit()
+
+    assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 200
+    assert db_app_client.get(f"/api/v1/profiles/{pid}/versions/{vid}/bundle").status_code == 200
+
+
+@requires_db
+def test_curated_tiers_bypass_review_status(db_app_client) -> None:
+    # Curated official/beta profiles are seeded by the Vesana team and must stay
+    # visible regardless of review_status — the approval gate is only for the
+    # community tier.
+    def rows(db):
+        _make_profile(db, name="Official Pending", tier="official", review_status="pending")
+        _make_profile(db, name="Beta Pending", tier="beta", review_status="pending")
+
+    _seed(rows)
+
+    body = db_app_client.get("/api/v1/profiles", params={"limit": 100}).json()
+    names = {item["name"] for item in body["items"]}
+    assert names == {"Official Pending", "Beta Pending"}
 
 
 @requires_db

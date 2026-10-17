@@ -312,7 +312,17 @@ def _profile_with_mibs(client, make_login_jwt, name, mibs, sub):
         headers={"Authorization": f"Bearer {api}"},
     )
     assert r.status_code == 200, r.text
-    return r.json()["profile_id"]
+    pid = r.json()["profile_id"]
+    # A community upload is pending (hidden) until reviewed; the MIB pages only
+    # list APPROVED profiles. Approve so this helper yields a catalog-visible
+    # profile, matching a real curator's view.
+    from app.db import SessionLocal
+    from app.services.uploads import approve
+
+    with SessionLocal() as db:
+        approve(db, pid)
+        db.commit()
+    return pid
 
 
 @requires_db
