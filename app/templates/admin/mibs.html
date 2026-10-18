@@ -104,7 +104,7 @@
     {% if decided %}
     <div class="panel">
       <h3>{{ t('admin.mibs.sub_decided') }}</h3>
-      <ul class="plain">{% for s in decided %}<li><code>{{ s.module }}</code> <span class="badge badge--{{ 'approved' if s.status == 'approved' else ('rejected' if s.status == 'rejected' else 'closed') }}">{{ t('admin.mibs.sub_status_' ~ s.status) }}</span> <span class="muted">· {{ s.instance_name }} · {{ (s.decided_at or '')[:10] }}</span></li>{% endfor %}</ul>
+      <ul class="plain">{% for s in decided %}<li><code>{{ s.module }}</code> <span class="badge badge--{{ 'approved' if s.status == 'approved' else ('rejected' if s.status == 'rejected' else 'neutral') }}">{{ t('admin.mibs.sub_status_' ~ s.status) }}</span> <span class="muted">· {{ s.instance_name }} · {{ (s.decided_at or '')[:10] }}</span></li>{% endfor %}</ul>
     </div>
     {% endif %}
     <div class="panel">
