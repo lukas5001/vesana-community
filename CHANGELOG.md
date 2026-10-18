@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.1
+
+- Ein entschiedener oder zurückgezogener MIB-Vorschlag hält sein Verzeichnis
+  jetzt als echtes SQL NULL statt als JSON-Wert `null` (Inhalt war schon
+  vorher weg).
+
 ## 0.14.0 — MIBs aus Instanzen vorschlagen
 
 - Instanzen schlagen eine selbst hochgeladene MIB vor:

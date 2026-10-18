@@ -34,6 +34,22 @@ def _submit(client, headers, **over):
     return client.post("/api/v1/mib-submissions", json=body, headers=headers)
 
 
+def _stored_null(client_db_id: str) -> bool:
+    """Ist das Verzeichnis in der Datenbank wirklich SQL NULL (nicht JSON ``null``)?"""
+    from sqlalchemy import text
+
+    from app.db import SessionLocal
+
+    with SessionLocal() as db:
+        return db.execute(
+            text(
+                "select directory is null and source_text is null"
+                " from community.mib_submissions where id = :id"
+            ),
+            {"id": client_db_id},
+        ).scalar_one()
+
+
 def _row(client_db_id: str):
     from app.db import SessionLocal
     from app.models.mib_submission import MibSubmission
@@ -123,6 +139,7 @@ def test_fremde_instanz_sieht_und_zieht_nichts_zurueck(db_app_client, make_login
     assert c.delete(f"/api/v1/mib-submissions/{sid}", headers=a).status_code == 409
     row = _row(sid)
     assert row.directory is None and row.source_text is None
+    assert _stored_null(sid)
 
 
 @requires_db
@@ -152,6 +169,7 @@ def test_freigabe_folgt_der_lizenz_des_admins_nicht_der_angabe(db_app_client, ma
     # aufbewahrt bleibt nur, was die Bibliothek trägt
     row = _row(sid)
     assert row.directory is None and row.source_text is None and row.reviewed_by
+    assert _stored_null(sid)
     items = c.get("/api/v1/mib-submissions", headers=h).json()["items"]
     assert items[0]["status"] == "approved"
     # das Admin-Protokoll nennt Vorschlag und Instanz

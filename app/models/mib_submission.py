@@ -44,7 +44,11 @@ class MibSubmission(Base):
     enterprise: Mapped[str | None] = mapped_column(String(64), nullable=True)
     organization: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # NULL nach der Entscheidung (siehe Modul-Docstring).
-    directory: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # ``none_as_null``: nach der Entscheidung wird das Verzeichnis geleert —
+    # ohne das schriebe SQLAlchemy das JSON-Literal ``null`` statt SQL NULL.
+    directory: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     object_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     descriptions_included: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
