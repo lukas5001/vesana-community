@@ -16,6 +16,35 @@
   <div class="kpi"><span class="kpi__l">{{ t('admin.mibs.missing_title') }}</span><span class="kpi__v">{{ overview.missing | length }}</span></div>
 </div>
 
+{% if submissions %}
+<section class="ad-section">
+  <h2 class="ad-h2">{{ t('admin.mibs.sub_title') }} <span class="muted">· {{ submissions | length }}</span></h2>
+  <p class="muted">{{ t('admin.mibs.sub_lede') }}</p>
+  <div class="reg-wrap">
+  <table class="reg reg--admin">
+    <thead><tr>
+      <th>{{ t('admin.mibs.col_module') }}</th>
+      <th class="r">{{ t('admin.mibs.objects') }}</th>
+      <th>{{ t('admin.mibs.sub_claim') }}</th>
+      <th>{{ t('admin.mibs.sub_from') }}</th>
+      <th class="r">{{ t('admin.col.actions') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for s in submissions %}
+      <tr>
+        <td><a class="nm mono" href="/admin/mibs/submissions/{{ s.id }}">{{ s.module }}</a><div class="vd">{{ s.organization or '—' }}{% if s.enterprise %} · {{ s.enterprise }}{% endif %}</div></td>
+        <td class="r num">{{ s.object_count }}</td>
+        <td><span class="muted" title="{{ s.license_claim }}">{{ s.license_claim | truncate(60) }}</span>{% if s.allows_source_claim %}<div class="vd">{{ t('admin.mibs.sub_claims_source') }}</div>{% endif %}</td>
+        <td><a href="/admin/instances/{{ s.instance_uuid }}">{{ s.instance_name }}</a><div class="vd">{{ s.created_at[:10] }}</div></td>
+        <td class="r"><a class="btn btn--ghost btn--sm" href="/admin/mibs/submissions/{{ s.id }}">{{ t('admin.mibs.sub_review') }}</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
 <div class="ad-cols ad-cols--wide">
   <section>
     <form class="ad-filters" method="get" action="/admin/mibs" data-tools>
@@ -72,6 +101,12 @@
       <p class="muted">{{ t('admin.mibs.no_refs_lede') }}</p>
       {% if overview.snmp_without_mibs %}<ul class="plain">{% for p in overview.snmp_without_mibs %}<li><a href="/admin/profiles/{{ p.id }}">{{ p.name }}</a></li>{% endfor %}</ul>{% endif %}
     </div>
+    {% if decided %}
+    <div class="panel">
+      <h3>{{ t('admin.mibs.sub_decided') }}</h3>
+      <ul class="plain">{% for s in decided %}<li><code>{{ s.module }}</code> <span class="badge badge--{{ 'approved' if s.status == 'approved' else ('rejected' if s.status == 'rejected' else 'closed') }}">{{ t('admin.mibs.sub_status_' ~ s.status) }}</span> <span class="muted">· {{ s.instance_name }} · {{ (s.decided_at or '')[:10] }}</span></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
     <div class="panel">
       <h3>{{ t('admin.mibs.publish_title') }}</h3>
       <p class="muted">{{ t('admin.mibs.publish_lede') }}</p>

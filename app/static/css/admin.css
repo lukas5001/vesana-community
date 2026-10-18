@@ -256,3 +256,4 @@ dialog.confirm::backdrop{background:rgba(31,20,25,.45);backdrop-filter:blur(2px)
   .reg--admin td.wrap-cell{max-width:none}
   .codes{grid-template-columns:1fr}
 }
+.code--src{border:1px solid var(--hair);border-radius:var(--r-sm);padding:10px 14px;max-height:28rem;overflow:auto;white-space:pre}

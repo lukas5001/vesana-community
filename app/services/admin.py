@@ -27,6 +27,7 @@ from app.models.community_profile import CommunityProfile
 from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
 from app.models.library_icon import LibraryIcon
+from app.models.mib_submission import MibSubmission
 from app.models.moderation_report import ModerationReport
 from app.models.profile_comment import ProfileComment
 from app.models.question import Question
@@ -1105,6 +1106,12 @@ def tasks(db: Session) -> dict[str, int]:
             select(func.count())
             .select_from(Question)
             .where(Question.is_closed.is_(False), Question.answer_count == 0),
+        ),
+        "mib_submissions": _count(
+            db,
+            select(func.count())
+            .select_from(MibSubmission)
+            .where(MibSubmission.status == "pending"),
         ),
         "comments_total": _count(
             db,

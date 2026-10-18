@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.14.0 — MIBs aus Instanzen vorschlagen
+
+- Instanzen schlagen eine selbst hochgeladene MIB vor:
+  `POST /api/v1/mib-submissions` (Bearer-Token der Instanz) mit dem
+  übersetzten Verzeichnis, der Lizenz-Angabe, Bezugsquelle, Notiz und auf
+  Wunsch dem Originaltext. `GET` listet die eigenen Vorschläge samt Ergebnis
+  (bei Ablehnung mit Grund), `DELETE …/{id}` zieht einen offenen zurück.
+- Bis zur Freigabe sieht niemand den Vorschlag. Dieselbe Datei zweimal ergibt
+  keinen zweiten Vorschlag, höchstens 20 offene je Instanz, eine Revision, die
+  schon in der Bibliothek liegt, wird mit 409 `already_in_library` abgewiesen.
+- Admin → MIBs zeigt die Warteschlange; die Prüfseite zeigt den Anfang des
+  Originaltexts (Lizenz/Copyright), die Objekte und was die Bibliothek vom
+  Modul schon hat. Freigeben veröffentlicht über denselben Dienst wie der
+  Kurator-Befehl — mit der Lizenz, die der Admin festlegt, nicht mit der
+  Angabe des Einsenders. Ablehnen nennt der Instanz den Grund. Admin-Protokoll
+  `mib.submission.approve`/`mib.submission.reject`, Aufgaben-Kachel in der
+  Übersicht, Zähler am Reiter. Gleiches über die Admin-API
+  (`/api/v1/admin/mib-submissions`).
+- Nach der Entscheidung (oder dem Zurückziehen) werden Verzeichnis und
+  Originaltext des Vorschlags gelöscht.
+- Migration `0015_mib_submissions`.
+
 ## 0.13.0 — MIB-Bibliothek auf der Seite
 
 - Neue Seite **MIBs** (`/mibs`, Menüpunkt): alle Module der Bibliothek mit

@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ sub.module }} · {{ t('admin.nav.mibs') }}{% endblock %}
+{% block crumbs %}<i>/</i><a href="/admin/mibs">{{ t('admin.nav.mibs') }}</a><i>/</i><b>{{ sub.module }}</b>{% endblock %}
+
+{% block content %}
+<div class="ad-head">
+  <div>
+    <p class="eyebrow">{{ t('admin.mibs.sub_eyebrow') }} · <span class="badge badge--{{ 'approved' if sub.status == 'approved' else ('rejected' if sub.status == 'rejected' else ('pending' if sub.status == 'pending' else 'closed')) }}">{{ t('admin.mibs.sub_status_' ~ sub.status) }}</span></p>
+    <h1 class="mono">{{ sub.module }}</h1>
+    <p class="lede">{{ sub.organization or '—' }}{% if insp.revision_date %} · {{ insp.revision_date }}{% endif %}{% if sub.enterprise %} · {{ sub.enterprise }}{% endif %} · {{ t('admin.mibs.sub_from') }} <a href="/admin/instances/{{ sub.instance_uuid }}">{{ sub.instance_name }}</a> · {{ sub.created_at[:10] }}{% if sub.reason %} · <span class="crit">{{ t('admin.review.rejected_reason') }}: {{ sub.reason }}</span>{% endif %}</p>
+  </div>
+</div>
+
+<div class="ad-layout">
+  <div>
+    {% if sub.status != 'pending' %}
+    <p class="empty">{{ t('admin.mibs.sub_closed') }}</p>
+    {% else %}
+    <section class="ad-section">
+      <h2 class="ad-h2">{{ t('admin.mibs.sub_source') }}</h2>
+      {% if insp.source_head %}
+      <p class="muted">{{ t('admin.mibs.sub_source_lede', n=insp.source_lines) }} <a href="/admin/mibs/submissions/{{ sub.id }}/source" target="_blank" rel="noopener">{{ t('admin.mibs.sub_source_full') }}</a></p>
+      <pre class="code code--src"><code>{{ insp.source_head }}</code></pre>
+      {% else %}
+      <p class="muted">{{ t('admin.mibs.sub_no_source') }}</p>
+      {% endif %}
+    </section>
+
+    <section class="ad-section">
+      <h2 class="ad-h2">{{ t('admin.mibs.sub_objects', n=sub.object_count) }}</h2>
+      <p class="muted">{% for k, n in insp.kinds | dictsort %}{{ k }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}{% if insp.imports %} · {{ t('mib.imports') }}: {{ insp.imports | join(', ') }}{% endif %}</p>
+      <div class="reg-wrap">
+      <table class="reg reg--admin">
+        <thead><tr><th>{{ t('mib.col_name') }}</th><th>OID</th><th>{{ t('mib.col_type') }}</th><th>{{ t('admin.mibs.sub_col_desc') }}</th></tr></thead>
+        <tbody>
+        {% for o in insp.preview %}
+          <tr>
+            <td class="mono">{{ o.name }}</td>
+            <td class="mono small">{{ o.oid }}</td>
+            <td class="small">{{ o.tc_name or o.syntax or o.kind }}{% if o.units %} · {{ o.units }}{% endif %}</td>
+            <td class="small muted">{{ (o.description or '') | truncate(140) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% if sub.object_count > insp.preview | length %}<p class="muted">{{ t('admin.mibs.sub_more', n=sub.object_count - insp.preview | length) }}</p>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="ad-side-col">
+    {% if sub.status == 'pending' %}
+    <div class="panel">
+      <h3>{{ t('admin.review.decision') }}</h3>
+      <form method="post" action="/admin/mibs/submissions/{{ sub.id }}/approve" class="stack">{% include "admin/_csrf.html" %}
+        <label class="field"><span class="field__label">{{ t('admin.mibs.sub_licence') }}</span><input class="field__input" type="text" name="license" value="{{ sub.license_claim }}" required maxlength="200" /><span class="field__hint">{{ t('admin.mibs.sub_licence_hint') }}</span></label>
+        <label class="check-opt"><input type="checkbox" name="license_allows_source" {% if sub.allows_source_claim and sub.has_source %}checked{% endif %} /><span>{{ t('admin.mibs.sub_allows_source') }}</span></label>
+        <p class="muted">{{ t('admin.mibs.sub_allows_source_hint') }}</p>
+        <label class="field"><span class="field__label">{{ t('admin.mibs.sub_url') }}</span><input class="field__input" type="url" name="source_url" value="{{ sub.source_url or '' }}" maxlength="1000" /></label>
+        <label class="field"><span class="field__label">{{ t('admin.mibs.sub_notes') }}</span><textarea class="field__input" name="notes" rows="2"></textarea></label>
+        <button class="btn btn--ok" type="submit"><svg><use href="#a-check"/></svg>{{ t('admin.mibs.sub_approve') }}</button>
+      </form>
+      <form method="post" action="/admin/mibs/submissions/{{ sub.id }}/reject" class="stack">{% include "admin/_csrf.html" %}
+        <label class="field"><span class="field__label">{{ t('admin.review.reason') }}</span><textarea class="field__input" name="reason" rows="3" placeholder="{{ t('admin.mibs.sub_reason_ph') }}"></textarea></label>
+        <button class="btn btn--danger" type="submit"><svg><use href="#a-x"/></svg>{{ t('admin.review.reject') }}</button>
+        <p class="muted">{{ t('admin.mibs.sub_reject_hint') }}</p>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <h3>{{ t('admin.mibs.sub_claim_title') }}</h3>
+      <dl class="kv">
+        <dt>{{ t('admin.mibs.sub_licence') }}</dt><dd>{{ sub.license_claim }}</dd>
+        <dt>{{ t('admin.mibs.sub_allows_source') }}</dt><dd>{{ t('common.yes') if sub.allows_source_claim else t('common.no') }}</dd>
+        <dt>{{ t('admin.mibs.sub_url') }}</dt><dd>{% if sub.source_url %}<a href="{{ sub.source_url }}" target="_blank" rel="noopener nofollow">{{ sub.source_url | truncate(48) }}</a>{% else %}—{% endif %}</dd>
+        <dt>{{ t('admin.mibs.with_desc') }}</dt><dd>{{ t('common.yes') if sub.descriptions_included else t('common.no') }}</dd>
+        <dt>Revision</dt><dd class="mono">{{ sub.revision or '—' }}</dd>
+      </dl>
+      {% if sub.note %}<p class="prose-sm">{{ sub.note }}</p>{% endif %}
+    </div>
+
+    {% if insp.existing %}
+    <div class="panel">
+      <h3>{{ t('admin.mibs.sub_existing') }}</h3>
+      <ul class="plain">{% for m in insp.existing %}<li><a class="mono" href="/mibs/{{ m.module }}">{{ m.revision or '—' }}</a> <span class="muted">· {{ m.object_count }} · {{ m.license.split(' — ')[0] }}{% if m.removed %} · {{ t('admin.mibs.removed') }}{% endif %}</span></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
