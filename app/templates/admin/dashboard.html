@@ -18,6 +18,14 @@
       <span class="task__t">{{ t('admin.dash.task_review') }}</span>
       <span class="task__go">→</span>
     </a>
+    {% if tasks.mib_submissions %}
+    <a class="task task--due" href="/admin/mibs">
+      <svg><use href="#a-inbox"/></svg>
+      <span class="task__n">{{ tasks.mib_submissions }}</span>
+      <span class="task__t">{{ t('admin.dash.task_mibs') }}</span>
+      <span class="task__go">→</span>
+    </a>
+    {% endif %}
     <a class="task {% if tasks.reports %}task--due{% endif %}" href="/admin/moderation">
       <svg><use href="#a-flag"/></svg>
       <span class="task__n">{{ tasks.reports }}</span>

@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth import admin_security as sec
@@ -65,7 +65,11 @@ def _ctx(request: Request, db: Session, active: str, **extra: Any) -> dict:
         "version": VERSION,
         "active": active,
         "sections": [{"key": key, "href": href, "icon": icon} for key, href, icon in SECTIONS],
-        "badges": {"review": tasks["pending"], "moderation": tasks["reports"]},
+        "badges": {
+            "review": tasks["pending"],
+            "moderation": tasks["reports"],
+            "mibs": tasks["mib_submissions"],
+        },
         "admin_user": request.session.get("admin_user") or "admin",
         "path": request.url.path,
         **extra,
@@ -919,12 +923,114 @@ def admin_icons(
 
 @router.get("/admin/mibs", response_class=HTMLResponse)
 def admin_mibs(request: Request, admin: AdminUser, db: DbDep, q: str | None = None) -> HTMLResponse:
-    from app.services import mib_library
+    from app.services import mib_library, mib_submissions
 
+    pending = mib_submissions.list_for_review(db, "pending")
+    decided = [
+        r for r in mib_submissions.list_for_review(db, "all", limit=40) if r.status != "pending"
+    ][:10]
+    names = admin_service.names_for(db, {r.instance_uuid for r in pending + decided})
     context = _ctx(
-        request, db, "mibs", overview=mib_library.admin_overview(db, q=q or None), q=q or ""
+        request,
+        db,
+        "mibs",
+        overview=mib_library.admin_overview(db, q=q or None),
+        q=q or "",
+        submissions=[mib_submissions.to_review_item(r, names) for r in pending],
+        decided=[mib_submissions.to_review_item(r, names) for r in decided],
     )
     return templates.TemplateResponse(request, "admin/mibs.html", context)
+
+
+@router.get("/admin/mibs/submissions/{submission_id}", response_class=HTMLResponse)
+def admin_mib_submission(
+    submission_id: str, request: Request, admin: AdminUser, db: DbDep
+) -> HTMLResponse:
+    from app.services import mib_submissions
+
+    row = mib_submissions.get(db, submission_id)
+    names = admin_service.names_for(db, {row.instance_uuid})
+    context = _ctx(
+        request,
+        db,
+        "mibs",
+        sub=mib_submissions.to_review_item(row, names),
+        insp=mib_submissions.inspection(db, row),
+    )
+    return templates.TemplateResponse(request, "admin/mib_submission.html", context)
+
+
+@router.get("/admin/mibs/submissions/{submission_id}/source", response_class=PlainTextResponse)
+def admin_mib_submission_source(
+    submission_id: str, admin: AdminUser, db: DbDep
+) -> PlainTextResponse:
+    """Der volle Originaltext zum Prüfen der Lizenz — nur für den Admin, nur
+    solange der Vorschlag offen ist (danach ist er gelöscht)."""
+    from app.services import mib_submissions
+
+    row = mib_submissions.get(db, submission_id)
+    if not row.source_text:
+        raise HTTPException(status_code=404, detail="no source text")
+    return PlainTextResponse(
+        row.source_text,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'inline; filename="{row.module}.mib"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/admin/mibs/submissions/{submission_id}/approve")
+def admin_mib_submission_approve(
+    submission_id: str,
+    request: Request,
+    admin: AdminUser,
+    db: DbDep,
+    _csrf: Csrf,
+    license: Annotated[str, Form()] = "",
+    license_allows_source: Annotated[str | None, Form()] = None,
+    source_url: Annotated[str, Form()] = "",
+    notes: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    from app.services import mib_submissions
+
+    if not license.strip():
+        _flash(request, "err", "admin.flash.mib_licence_required")
+        return _redirect(f"/admin/mibs/submissions/{submission_id}")
+    row, module, neu = mib_submissions.approve(
+        db,
+        submission_id,
+        mib_submissions.ApproveInput(
+            license=license,
+            license_allows_source=license_allows_source is not None,
+            source_url=source_url or None,
+            notes=notes or None,
+        ),
+        admin=admin,
+    )
+    mib_submissions.record_approve(db, admin, row, module, neu, ip=client_ip(request))
+    db.commit()
+    _flash(request, "ok", "admin.flash.mib_approved", name=module.module)
+    return _redirect("/admin/mibs")
+
+
+@router.post("/admin/mibs/submissions/{submission_id}/reject")
+def admin_mib_submission_reject(
+    submission_id: str,
+    request: Request,
+    admin: AdminUser,
+    db: DbDep,
+    _csrf: Csrf,
+    reason: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    from app.services import mib_submissions
+
+    row = mib_submissions.reject(db, submission_id, reason, admin=admin)
+    mib_submissions.record_reject(db, admin, row, ip=client_ip(request))
+    db.commit()
+    _flash(request, "ok", "admin.flash.mib_rejected", name=row.module)
+    return _redirect("/admin/mibs")
 
 
 @router.post("/admin/mibs/{module}/remove")

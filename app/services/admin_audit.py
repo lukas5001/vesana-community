@@ -47,6 +47,8 @@ ACTIONS = (
     "mib.publish",
     "mib.remove",
     "mib.restore",
+    "mib.submission.approve",
+    "mib.submission.reject",
 )
 
 PER_PAGE = 50

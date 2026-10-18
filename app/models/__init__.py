@@ -13,6 +13,7 @@ from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
 from app.models.library_icon import LibraryIcon
 from app.models.mib_module import MibModule
+from app.models.mib_submission import MibSubmission
 from app.models.moderation_report import ModerationReport
 from app.models.profile_comment import ProfileComment
 from app.models.question import Question
@@ -34,4 +35,5 @@ __all__ = [
     "Answer",
     "LibraryIcon",
     "MibModule",
+    "MibSubmission",
 ]
