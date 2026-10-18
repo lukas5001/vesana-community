@@ -5,7 +5,7 @@
 {% block content %}
 <div class="ad-head">
   <div>
-    <p class="eyebrow">{{ t('admin.mibs.sub_eyebrow') }} · <span class="badge badge--{{ 'approved' if sub.status == 'approved' else ('rejected' if sub.status == 'rejected' else ('pending' if sub.status == 'pending' else 'closed')) }}">{{ t('admin.mibs.sub_status_' ~ sub.status) }}</span></p>
+    <p class="eyebrow">{{ t('admin.mibs.sub_eyebrow') }} · <span class="badge badge--{{ 'approved' if sub.status == 'approved' else ('rejected' if sub.status == 'rejected' else ('pending' if sub.status == 'pending' else 'neutral')) }}">{{ t('admin.mibs.sub_status_' ~ sub.status) }}</span></p>
     <h1 class="mono">{{ sub.module }}</h1>
     <p class="lede">{{ sub.organization or '—' }}{% if insp.revision_date %} · {{ insp.revision_date }}{% endif %}{% if sub.enterprise %} · {{ sub.enterprise }}{% endif %} · {{ t('admin.mibs.sub_from') }} <a href="/admin/instances/{{ sub.instance_uuid }}">{{ sub.instance_name }}</a> · {{ sub.created_at[:10] }}{% if sub.reason %} · <span class="crit">{{ t('admin.review.rejected_reason') }}: {{ sub.reason }}</span>{% endif %}</p>
   </div>
@@ -76,7 +76,7 @@
         <dt>{{ t('admin.mibs.sub_allows_source') }}</dt><dd>{{ t('common.yes') if sub.allows_source_claim else t('common.no') }}</dd>
         <dt>{{ t('admin.mibs.sub_url') }}</dt><dd>{% if sub.source_url %}<a href="{{ sub.source_url }}" target="_blank" rel="noopener nofollow">{{ sub.source_url | truncate(48) }}</a>{% else %}—{% endif %}</dd>
         <dt>{{ t('admin.mibs.with_desc') }}</dt><dd>{{ t('common.yes') if sub.descriptions_included else t('common.no') }}</dd>
-        <dt>Revision</dt><dd class="mono">{{ sub.revision or '—' }}</dd>
+        <dt>Revision</dt><dd class="mono" title="{{ sub.revision or '' }}">{{ insp.revision_date or sub.revision or '—' }}</dd>
       </dl>
       {% if sub.note %}<p class="prose-sm">{{ sub.note }}</p>{% endif %}
     </div>
