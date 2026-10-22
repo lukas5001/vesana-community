@@ -34,7 +34,7 @@ from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
 from app.schemas.profile import VESANA_TEAM_UPLOADER
 from app.schemas.upload import ReviewItem
-from app.services import notifications
+from app.services import notifications, profile_lint
 from app.telemetry_checks import strip_telemetry_checks
 
 # Maximum serialized bundle size. Bundles reference scripts by id, so they stay
@@ -266,6 +266,7 @@ def create_or_version_profile(
     bundle: dict[str, Any],
     version_tag: str | None,
     changelog_md: str | None,
+    lint_funde: list[dict[str, str]] | None = None,
 ) -> tuple[CommunityProfile, CommunityProfileVersion]:
     """Create a new community profile OR add a new version of the uploader's own.
 
@@ -274,7 +275,15 @@ def create_or_version_profile(
     NEW immutable version: ``is_current`` flips to the new row, ``review_status``
     resets to 'pending' and the script-gate re-runs. Re-using an existing
     ``version_tag`` for the same profile is a 409.
+
+    🔒 Before anything is written, the profile lint runs (``services/profile_lint``):
+    a FEHLER (certain defect) rejects the upload with 422 — for a new version of
+    an existing profile too. Every other finding is appended to ``lint_funde``
+    (when the caller passes a list) and never blocks.
     """
+    ergebnis = profile_lint.pruefe_fuer_upload(db, bundle)
+    if lint_funde is not None:
+        lint_funde.extend(f.as_dict() for f in ergebnis.funde)
     fields = _profile_fields_from_bundle(bundle)
     has_scripts, findings = scan_scripts(bundle)
     tag = version_tag or "v1"

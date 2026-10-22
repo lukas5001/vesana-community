@@ -2,6 +2,15 @@
    und Profil-Detail. Erwartet: profile, checks, scripts, findings, versions,
    current, bundle_meta. Versionen-Aktionen nur mit `allow_version_switch`. #}
 <section class="tab" data-tab="checks">
+  {% set lint_rot = (lint or []) | selectattr('schwere', 'in', ['fehler', 'warnung']) | list %}
+  {% if lint_rot %}
+  <div class="notice notice--warn">
+    <svg><use href="#a-alert"/></svg>
+    <div><b>{{ t('admin.insp.lint_title', n=lint_rot|length) }}</b>
+      <ul class="findings">{% for f in lint_rot %}<li><code>{{ f.schwere }}</code> {{ f.check }} <span class="muted">— {{ f.text }}</span></li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% endif %}
   {% if not checks %}<p class="muted">{{ t('detail.no_checks') }}</p>{% else %}
   <div class="reg-wrap">
   <table class="reg reg--admin reg--checks">
