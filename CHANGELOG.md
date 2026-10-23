@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.15.0 — Profil-Prüfung beim Hochladen
+
+- Jedes hochgeladene Profil (API und Formular, auch eine neue Version eines
+  bestehenden Profils) läuft durch die Profil-Prüfung `app/profile_lint/`:
+  Script-Rümpfe (`bash -n`/`dash -n`, awk-Programme, `python3 -c` und
+  Python-Here-Documents, grep-Muster, PowerShell gegen 5.1), Ziel-Shell der
+  SSH-Scripts (Cisco, FortiOS, HP ProVision, RouterOS haben kein bash), SNMP
+  gegen die MIB-Typen der Bibliothek plus der Standard-MIBs (Prozent auf
+  Byte-/Zählergrößen, Zähler mit absoluter Grenze, Aufzählung als
+  `snmp_counter`, TimeTicks ohne Dauer-Format, Einzelkern auf hrProcessorLoad,
+  Textspalte als Status, Zuordnung gegen die Aufzählung der MIB), SSL ohne
+  `warn_days`/`crit_days`.
+- Ein Fehler (sicherer Defekt: Syntaxfehler, Wert immer 0/gleich, Prozent auf
+  Bytes) weist den Upload mit 422 bzw. im Formular mit Klartext ab. Warnungen
+  und Hinweise blockieren nie: die API-Antwort trägt sie in `lint`, die
+  Admin-Prüfung zeigt Fehler und Warnungen live über dem Checks-Reiter.
+- OIDs ohne auflösbare MIB heißen „nicht prüfbar", nie „ok".
+- `GET /api/v1/profile-lint` nennt Version und Fingerabdruck der Prüfung —
+  Vesana trägt eine byte-gleiche Kopie für die Nachtschicht und vergleicht.
+- Keine Migration.
+
 ## 0.14.1
 
 - Ein entschiedener oder zurückgezogener MIB-Vorschlag hält sein Verzeichnis

@@ -32,6 +32,7 @@ from app.schemas import check_preview_from_bundle
 from app.services import admin as admin_service
 from app.services import admin_account
 from app.services import admin_audit as audit
+from app.services import profile_lint as profile_lint_service
 from app.services import uploads as uploads_service
 from app.templating import templates
 from app.version import VERSION
@@ -180,12 +181,19 @@ def _profile_inspection(db: Session, profile) -> dict:
         admin_service.bundle_scripts(bundle), list(profile.script_findings or [])
     )
     versions = sorted(profile.versions or [], key=lambda v: v.created_at, reverse=True)
+    # Live gerechnet, nie gespeichert: neue Regeln gelten so auch für alte Versionen.
+    lint_funde = (
+        [f.as_dict() for f in profile_lint_service.pruefe(db, bundle).funde]
+        if isinstance(bundle, dict)
+        else []
+    )
     return {
         "profile": profile,
         "uploader": admin_service.uploader_name(db, profile),
         "checks": previews,
         "scripts": scripts,
         "findings": list(profile.script_findings or []),
+        "lint": lint_funde,
         "versions": versions,
         "current": current,
         "bundle_meta": (bundle or {}).get("profile") if isinstance(bundle, dict) else None,

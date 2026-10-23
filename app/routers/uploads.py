@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.routers.community_interactions import AdminFlag, CurrentInstance, DbDep
 from app.schemas.upload import BundleUpload, RejectIn, ReviewItem, UploadResult
+from app.services import profile_lint as profile_lint_service
 from app.services import uploads as uploads_service
 
 router = APIRouter(tags=["uploads"])
@@ -31,12 +32,14 @@ def upload_profile(
     db: DbDep,
 ) -> UploadResult:
     bundle = uploads_service.validate_bundle(payload.bundle)
+    lint_funde: list[dict[str, str]] = []
     profile, version = uploads_service.create_or_version_profile(
         db,
         instance_uuid=instance.uuid,
         bundle=bundle,
         version_tag=payload.version_tag,
         changelog_md=payload.changelog_md,
+        lint_funde=lint_funde,
     )
     db.commit()
     return UploadResult(
@@ -45,7 +48,15 @@ def upload_profile(
         review_status=profile.review_status,
         has_scripts=profile.has_scripts,
         script_findings=list(profile.script_findings or []),
+        lint=lint_funde,
     )
+
+
+@router.get("/api/v1/profile-lint")
+def profile_lint_info() -> dict:
+    """Version + Fingerabdruck der Profil-Prüfung. Vesana vergleicht nachts den
+    eigenen Fingerabdruck damit — die wortgleiche Kopie darf nicht abdriften."""
+    return profile_lint_service.info()
 
 
 def _require_admin(is_admin: bool) -> None:

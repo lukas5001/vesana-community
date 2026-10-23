@@ -29,6 +29,8 @@ class UploadResult(BaseModel):
     review_status: str
     has_scripts: bool
     script_findings: list[dict[str, Any]] = []
+    #: Funde der Profil-Prüfung ohne Fehler (Warnung/Hinweis/nicht prüfbar).
+    lint: list[dict[str, Any]] = []
 
 
 class ReviewItem(BaseModel):
