@@ -1,69 +1,22 @@
 """FastAPI auth dependencies.
 
-* ``get_current_instance`` — verifies a Bearer API token, loads the Instance and
-  rejects blocked instances on every request.
 * ``require_admin`` — Admin-SESSION (Login-Seite + optional TOTP), mit Idle-Ablauf.
-* ``get_session_instance`` — resolves the logged-in instance from the signed
-  session cookie (used by the HTML UI), or ``None`` if not logged in.
+* ``verify_admin_credentials`` — timing-sicherer Vergleich Benutzer + Passwort.
+
+Die Anmeldung von Instanzen (Portal-Login-JWT, API-Token, Sitzung) ist mit dem
+Umbau zur Vesana-Bibliothek (2026-11-07) entfallen — die Bibliothek wird ohne
+Anmeldung gelesen.
 """
 
 from __future__ import annotations
 
 import hmac
 import time
-from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import (
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, Request, status
 
-from app.auth.tokens import TokenError, verify_api_token
 from app.config import Settings, get_settings
-from app.db import get_db
-from app.models.instance import Instance
-
-_bearer = HTTPBearer(auto_error=False)
-
-
-def _unauthorized(detail: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=detail,
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-
-def get_current_instance(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-    db: Annotated[Session, Depends(get_db)],
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> Instance:
-    """Resolve and authorise the calling Instance from a Bearer API token.
-
-    Rejects with 401 if the token is missing/invalid, the instance is unknown,
-    or the instance is blocked.
-    """
-    if credentials is None or not credentials.credentials:
-        raise _unauthorized("missing bearer token")
-
-    try:
-        claims = verify_api_token(credentials.credentials, settings=settings)
-    except TokenError as exc:
-        raise _unauthorized(str(exc)) from exc
-
-    instance = db.get(Instance, claims["sub"])
-    if instance is None:
-        raise _unauthorized("unknown instance")
-    if instance.is_blocked:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="instance is blocked",
-        )
-    return instance
 
 
 def verify_admin_credentials(username: str, password: str, settings: Settings) -> bool:
@@ -111,20 +64,3 @@ def require_admin(request: Request) -> str:
         detail="admin login required",
         headers={"Location": f"/admin/login?next={quote(request.url.path)}"},
     )
-
-
-def get_session_instance(
-    request: Request,
-    db: Annotated[Session, Depends(get_db)],
-) -> Instance | None:
-    """Return the logged-in Instance from the signed session cookie, or None.
-
-    Blocked instances are treated as logged out.
-    """
-    instance_uuid = request.session.get("instance_uuid")
-    if not instance_uuid:
-        return None
-    instance = db.get(Instance, instance_uuid)
-    if instance is None or instance.is_blocked:
-        return None
-    return instance

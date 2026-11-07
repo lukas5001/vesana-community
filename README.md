@@ -1,51 +1,59 @@
 # vesana-community
 
-**community.vesana.org** — the Vesana Community Hub.
+**community.vesana.org** — die **Vesana-Bibliothek**.
 
-A standalone FastAPI application that is a *sibling* to the main Vesana product
-and the licence portal. It has its **own repository** and its **own version
-scheme** (`0.1.0`, `0.2.0`, …), independent of Vesana (which lives on `1.9.x`).
+A standalone FastAPI application, a *sibling* to the main Vesana product and the
+licence portal, with its **own repository** and its **own version scheme**
+(`0.x`), independent of Vesana.
 
-## What it is
+## What it is (since 0.16.0, 2026-11-07)
 
-The Community Hub is where Vesana instances meet. There is **no password to
-type** here: users arrive via single sign-on from their own Vesana instance.
-The **licence portal is the only trust anchor** — it signs a short-lived login
-token that vesana-community verifies cryptographically, with no roundtrip back
-to the portal.
+A **read-only, vendor-curated, signed profile catalog** that Vesana instances
+pull from — plus the icon library and the MIB library. There are **no uploads
+from instances**, no public website, no Q&A, no votes/comments, no
+notifications and no instance login any more. Questions and discussion live in
+the public GitHub repo [vesana-org/community](https://github.com/vesana-org/community);
+`GET /` redirects there and `robots.txt` disallows everything.
 
-## Architecture
+The only write path is the owner-only admin area (`/admin`, session + optional
+TOTP, plus the `X-Admin-Authorization` JSON API). Existing tables (questions,
+comments, votes, uploads, …) stay in the database untouched; only the code
+paths are gone.
 
-```
-Licence portal (Ed25519 PRIVATE key)
-        │  signs short-lived login JWT (EdDSA), TTL 5 min, single-use
-        ▼
-vesana-community  ──verifies with portal Ed25519 PUBLIC key (no roundtrip)
-        │
-        ├─ upserts the Instance row (display_name, avatar)
-        ├─ enforces single-use via community.used_login_tokens(jti)
-        └─ issues its OWN long-lived API token (HS256, signed with SECRET_KEY)
-                 │  30 days, refreshable, stateless, checked per request
-                 ▼  (Vesana backend stores & presents this token)
-```
+### Signing and channels
 
-* **Login JWT** — issued by the portal, algorithm `EdDSA`. Payload:
-  `{ iss:"vesana-licence-portal", sub: instance_uuid, display_name,
-  avatar_b64?, jti, iat, exp }`. TTL 5 min, single-use (replay → 401).
-* **API token** — issued by vesana-community, algorithm `HS256`, signed with
-  `SECRET_KEY`. Payload `{ sub: instance_uuid, typ:"api", iat, exp }`. Verified
-  on every request; blocked instances are rejected.
+Every profile version can carry a `signed_envelope`
+(`{"format": "vesana-library-sig/1", "key_id", "sig", "payload"}`), written by
+an **external signing tool** — the hub never computes or checks signatures, it
+stores and serves them. `released_all_at` says from when the stable channel
+sees the version.
+
+Instances send `X-Vesana-Channel: tester|stable` (missing/unknown ⇒ `stable`;
+older instances send nothing). A version is **released for channel c** iff it
+is signed AND (`c == tester` OR `released_all_at <= now()`). This single rule
+(`app.services.profiles.is_released_for`) decides everything an instance sees;
+an unsigned version is visible to nobody, a profile without a released version
+is hidden for that channel. `is_current` is only a curator marker in the admin
+view.
+
+### API
+
+| Method | Path                                                    | Purpose                                                               |
+|--------|---------------------------------------------------------|-----------------------------------------------------------------------|
+| GET    | `/api/v1/profiles`                                      | List; `latest_version_id`/`_tag` = newest version released for the channel |
+| GET    | `/api/v1/profiles/match-rules`                          | Discovery rules of profiles with a released version                   |
+| GET    | `/api/v1/profiles/{id}`                                 | Detail (check preview + changelog of the released version)            |
+| GET    | `/api/v1/profiles/{id}/versions`                        | Released versions only, newest first                                  |
+| GET    | `/api/v1/profiles/{id}/versions/{vid}/signed`           | The stored signed envelope (404 unless released + signed); counts a download |
+| GET    | `/api/v1/profiles/{id}/versions/{vid}/bundle`           | Legacy raw bundle for older instances, same release rule              |
+| GET    | `/api/v1/profile-lint`                                  | Version + fingerprint of the profile lint (Vesana compares nightly)   |
+| GET    | `/api/v1/icon-library…`                                 | Icon library (read-only)                                              |
+| GET    | `/api/v1/mibs…`                                         | MIB library (read-only)                                               |
+| *      | `/api/v1/admin/…`, `/admin…`                            | Owner admin (profiles, instances, icons, MIBs, audit, 2FA)            |
+| GET    | `/health`                                               | Liveness probe → `{status, service, version}`                         |
+
 * **Storage** — all tables live in a dedicated Postgres schema, `community`, so
   the app can safely share the prod Postgres instance with the rest of Vesana.
-
-### Auth endpoints
-
-| Method | Path                      | Purpose                                                        |
-|--------|---------------------------|---------------------------------------------------------------|
-| GET    | `/auth?token=<loginJWT>`  | Browser SSO: verify, upsert, set session cookie, redirect `/` |
-| POST   | `/api/v1/auth/exchange`   | Machine-to-machine: login JWT → `{api_token, expires_at}`     |
-| POST   | `/api/v1/auth/refresh`    | Bearer API token → fresh `{api_token, expires_at}`            |
-| GET    | `/health`                 | Liveness probe → `{status, service, version}`                 |
 
 ## Dev quickstart
 
@@ -54,7 +62,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env        # then edit SECRET_KEY + PORTAL_PUBLIC_KEY(_PATH)
+cp .env.example .env        # then edit SECRET_KEY + admin credentials
 
 # Bring up a local Postgres (the compose `postgres` service is dev-only):
 docker compose up -d postgres
@@ -71,9 +79,9 @@ App is then on http://localhost:8000 (or 8080 in Docker).
 pytest -q
 ```
 
-* Pure crypto and health tests **always run**.
-* DB-dependent SSO tests are **skipped** unless `DATABASE_URL_TEST` points at a
-  reachable Postgres, e.g.:
+* Pure logic tests **always run**.
+* DB-dependent tests are **skipped** unless `DATABASE_URL_TEST` points at a
+  reachable Postgres (CI runs a `postgres:16-alpine` service), e.g.:
 
 ```bash
 export DATABASE_URL_TEST="postgresql+psycopg://community:community@localhost:5432/community"
@@ -95,11 +103,8 @@ ruff format --check .
 | Variable                    | Default                                   | Description                                                       |
 |-----------------------------|-------------------------------------------|-------------------------------------------------------------------|
 | `DATABASE_URL`              | local Postgres URL                        | SQLAlchemy URL; prod = shared Postgres, schema `community`        |
-| `SECRET_KEY`                | `dev-insecure-change-me`                   | Signs the session cookie **and** HS256 API tokens                 |
-| `PORTAL_PUBLIC_KEY`         | (unset)                                   | Portal Ed25519 public key, inline PEM                             |
-| `PORTAL_PUBLIC_KEY_PATH`    | (unset)                                   | Path to a PEM file (used if `PORTAL_PUBLIC_KEY` is unset)         |
-| `API_TOKEN_TTL_DAYS`        | `30`                                      | API token lifetime in days                                        |
-| `LOGIN_TOKEN_LEEWAY_SECONDS`| `30`                                      | Clock-skew leeway when verifying login JWT expiry                 |
+| `SECRET_KEY`                | `dev-insecure-change-me`                   | Signs the admin session cookie                                    |
+| `PORTAL_PUBLIC_KEY(_PATH)`, `API_TOKEN_TTL_DAYS`, `LOGIN_TOKEN_LEEWAY_SECONDS` | — | Unused since 0.16.0 (instance login removed); still accepted |
 | `COMMUNITY_ADMIN_USER`      | `admin`                                   | HTTP Basic admin username                                         |
 | `COMMUNITY_ADMIN_PASSWORD`  | `change-me`                               | HTTP Basic admin password (compared timing-safe)                  |
 | `COMMUNITY_BASE_URL`        | `http://localhost:8080`                   | Public base URL of this app                                       |

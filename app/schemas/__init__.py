@@ -1,32 +1,14 @@
 """Pydantic schemas package.
 
-The profile library schemas introduced in 0.2.0, the voting + comment schemas
-added in 0.3.0 (C4) and the Q&A portal schemas added in 0.4.0 (C5). Auth
-endpoints use inline request bodies / plain dicts, so there are no auth schemas
-here.
+Profile-Bibliothek (``profile``) und Admin-API (``admin``). Die Schemas für
+Abstimmungen, Kommentare, Q&A, Uploads und Benachrichtigungen sind mit dem
+Umbau zur Vesana-Bibliothek (2026-11-07) entfallen.
 """
 
 from app.schemas.admin import (
     AdminStats,
     BlockIn,
     InstanceItem,
-    ReportItem,
-    ResolveReportIn,
-)
-from app.schemas.interactions import (
-    CommentEdit,
-    CommentIn,
-    CommentOut,
-    CommentThread,
-    HelpfulIn,
-    ReportIn,
-    VoteIn,
-    VoteResult,
-)
-from app.schemas.notifications import (
-    MarkReadIn,
-    NotificationList,
-    NotificationOut,
 )
 from app.schemas.profile import (
     VESANA_TEAM_UPLOADER,
@@ -37,21 +19,6 @@ from app.schemas.profile import (
     VersionSummary,
     check_preview_from_bundle,
 )
-from app.schemas.qa import (
-    AnswerIn,
-    AnswerOut,
-    QuestionDetail,
-    QuestionEdit,
-    QuestionIn,
-    QuestionSummary,
-    SimilarQuestion,
-)
-from app.schemas.upload import (
-    BundleUpload,
-    RejectIn,
-    ReviewItem,
-    UploadResult,
-)
 
 __all__ = [
     "ProfileSummary",
@@ -61,30 +28,6 @@ __all__ = [
     "CheckPreview",
     "check_preview_from_bundle",
     "VESANA_TEAM_UPLOADER",
-    "VoteIn",
-    "VoteResult",
-    "CommentIn",
-    "CommentEdit",
-    "CommentOut",
-    "CommentThread",
-    "HelpfulIn",
-    "ReportIn",
-    "QuestionIn",
-    "QuestionEdit",
-    "QuestionSummary",
-    "QuestionDetail",
-    "AnswerIn",
-    "AnswerOut",
-    "SimilarQuestion",
-    "BundleUpload",
-    "UploadResult",
-    "ReviewItem",
-    "RejectIn",
-    "NotificationOut",
-    "NotificationList",
-    "MarkReadIn",
-    "ReportItem",
-    "ResolveReportIn",
     "InstanceItem",
     "BlockIn",
     "AdminStats",

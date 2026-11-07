@@ -41,7 +41,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models.community_profile import CommunityProfile
 from app.models.community_profile_version import CommunityProfileVersion
-from app.services.uploads import scan_scripts, validate_bundle
+from app.services.bundle_check import scan_scripts, validate_bundle
 
 # Check-type prefixes that imply a deployment requirement, for the hub badges.
 _AGENT_TYPES = ("agent", "wmi")

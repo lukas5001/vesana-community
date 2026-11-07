@@ -8,8 +8,8 @@ import base64
 import pytest
 from fastapi import HTTPException
 
+from app.services.bundle_check import validate_bundle
 from app.services.mib_library import mib_refs_of_bundle, revision_key
-from app.services.uploads import validate_bundle
 from tests.conftest import requires_db
 
 _BASIC = "Basic " + base64.b64encode(b"admin:test-admin-pass").decode()
@@ -289,14 +289,15 @@ def test_objektseite_filtert_nach_name_oid_und_art_und_blaettert():
     assert enum["enum_more"] == 0
 
 
-def _visitor(client, make_login_jwt, sub="77777777-7777-7777-7777-777777777777"):
-    token = make_login_jwt(sub=sub, display_name="MibVisitor", jti=f"mib-{sub[:4]}")
-    client.get("/auth", params={"token": token}, follow_redirects=False)
+def _profile_with_mibs(name, mibs):
+    """Ein signiertes, für alle freigegebenes SNMP-Profil direkt in der DB — so,
+    wie es das Signier-Werkzeug hinterlässt (Uploads gibt es nicht mehr)."""
+    from datetime import UTC, datetime, timedelta
 
+    from app.db import SessionLocal
+    from app.models.community_profile import CommunityProfile
+    from app.models.community_profile_version import CommunityProfileVersion
 
-def _profile_with_mibs(client, make_login_jwt, name, mibs, sub):
-    login = make_login_jwt(sub=sub, display_name=name, jti=f"up-{sub[:6]}")
-    api = client.post("/api/v1/auth/exchange", json={"token": login}).json()["api_token"]
     bundle = {
         "schema_version": 1,
         "profile": {"name": name, "vendor": "MikroTik", "category": "network"},
@@ -306,113 +307,66 @@ def _profile_with_mibs(client, make_login_jwt, name, mibs, sub):
     }
     if mibs is not None:
         bundle["mibs"] = mibs
-    r = client.post(
-        "/api/v1/profiles/upload",
-        json={"bundle": bundle},
-        headers={"Authorization": f"Bearer {api}"},
-    )
-    assert r.status_code == 200, r.text
-    pid = r.json()["profile_id"]
-    # A community upload is pending (hidden) until reviewed; the MIB pages only
-    # list APPROVED profiles. Approve so this helper yields a catalog-visible
-    # profile, matching a real curator's view.
-    from app.db import SessionLocal
-    from app.services.uploads import approve
-
     with SessionLocal() as db:
-        approve(db, pid)
+        profile = CommunityProfile(
+            name=name, vendor="MikroTik", tier="official", approved=True, requires_snmp=True
+        )
+        db.add(profile)
+        db.flush()
+        db.add(
+            CommunityProfileVersion(
+                profile_id=profile.id,
+                version_tag="1.0.0",
+                bundle_json=bundle,
+                is_current=True,
+                signed_envelope={"format": "vesana-library-sig/1", "key_id": "k", "sig": "s"},
+                released_all_at=datetime.now(UTC) - timedelta(minutes=1),
+            )
+        )
         db.commit()
-    return pid
+        return profile.id
 
 
 @requires_db
-def test_mib_seiten_brauchen_wie_alle_seiten_eine_sitzung(db_app_client):
+def test_oeffentliche_mib_seiten_sind_entfallen_api_bleibt(db_app_client):
     _publish(db_app_client)
-    assert db_app_client.get("/mibs").status_code == 403
-    assert db_app_client.get("/mibs/MIKROTIK-MIB").status_code == 403
+    assert db_app_client.get("/mibs").status_code == 404
+    assert db_app_client.get("/mibs/MIKROTIK-MIB").status_code == 404
     # die Maschinen-API bleibt offen (Instanzen holen ohne Sitzung)
     assert db_app_client.get("/api/v1/mibs").status_code == 200
 
 
 @requires_db
-def test_bibliothek_zeigt_module_nutzer_und_fehlende_mibs(db_app_client, make_login_jwt):
-    c = db_app_client
-    _publish(c)
-    pid = _profile_with_mibs(
-        c,
-        make_login_jwt,
-        "MikroTik Router",
-        [{"module": "MIKROTIK-MIB"}, {"module": "GHOST-MIB"}],
-        "88888888-8888-8888-8888-888888888888",
-    )
-    _visitor(c, make_login_jwt)
-    page = c.get("/mibs").text
-    assert 'href="/mibs/MIKROTIK-MIB"' in page
-    assert f'href="/p/{pid}"' in page  # „benutzt von"
-    assert "GHOST-MIB" in page  # genannt, aber nicht in der Bibliothek — ehrlich gesagt
-    assert 'href="/mibs"' in page and 'aria-current="page"' in page  # Navigation
-    # Profilseite verlinkt die vorhandene MIB, die fehlende nicht
-    detail = c.get(f"/p/{pid}").text
-    assert '<a href="/mibs/MIKROTIK-MIB">' in detail
-    assert 'href="/mibs/GHOST-MIB"' not in detail
-
-
-@requires_db
-def test_objektsuche_findet_die_mib_eines_objekts(db_app_client, make_login_jwt):
-    c = db_app_client
-    _publish(c, directory=_big_directory(5))
-    _visitor(c, make_login_jwt)
-    by_name = c.get("/mibs", params={"q": "hltemp"}).text
-    assert "mtxrHlTemperature" in by_name and "/mibs/MIKROTIK-MIB?q=mtxrHlTemperature" in by_name
-    by_oid = c.get("/mibs", params={"q": ENT + ".1.1.3.15"}).text
-    assert "mtxrHlPowerSupplyState" in by_oid and "mtxrHlTemperature" not in by_oid
-    # LIKE-Zeichen sind Text, kein Joker
-    assert "mtxrFill" not in c.get("/mibs", params={"q": "mtxr%Fill"}).text
-
-
-@requires_db
-def test_modulseite_zeigt_objekte_werte_und_lizenz(db_app_client, make_login_jwt):
-    c = db_app_client
-    _publish(c, directory=_big_directory(450))
-    _visitor(c, make_login_jwt)
-    page = c.get("/mibs/MIKROTIK-MIB")
-    assert page.status_code == 200
-    html = page.text
-    assert "mtxrHlTemperature" in html and ENT + ".1.1.3.11" in html
-    assert "°C" in html and '<b class="num">1</b> true' in html
-    assert "Original-MIB herunterladen" not in html and "Download original MIB" not in html
-    assert "page=2" in html  # 452 Objekte ⇒ blättern
-    assert "mtxrHlTemperature" not in c.get("/mibs/MIKROTIK-MIB", params={"page": 2}).text
-    gefiltert = c.get("/mibs/MIKROTIK-MIB", params={"kind": "scalar"}).text
-    assert "mtxrFill0" not in gefiltert and "mtxrHlPowerSupplyState" in gefiltert
-    assert c.get("/mibs/NOPE-MIB").status_code == 404
-
-
-@requires_db
-def test_download_nur_wenn_lizenz_es_erlaubt_und_text_da_ist(db_app_client, make_login_jwt):
+def test_download_nur_wenn_lizenz_es_erlaubt_und_text_da_ist(db_app_client):
     c = db_app_client
     # Lizenz erlaubt, aber kein Text geschickt ⇒ kein Download-Versprechen
     r = _publish(c, license="IETF (BSD)", license_allows_source=True, source_text=None)
     assert r.status_code == 201 and r.json()["has_source"] is False
     assert c.get("/api/v1/mibs").json()["items"][0]["has_source"] is False
-    _visitor(c, make_login_jwt)
-    assert "/api/v1/mibs/MIKROTIK-MIB/source" not in c.get("/mibs/MIKROTIK-MIB").text
+    assert c.get("/api/v1/mibs/MIKROTIK-MIB/source").status_code == 404
     # mit Text ⇒ Download da und funktioniert
     _publish(c, license="IETF (BSD)", license_allows_source=True)
-    html = c.get("/mibs/MIKROTIK-MIB").text
-    assert 'href="/api/v1/mibs/MIKROTIK-MIB/source"' in html
     assert c.get("/api/v1/mibs/MIKROTIK-MIB/source").status_code == 200
 
 
 @requires_db
-def test_admin_mib_seite_entfernen_und_wiederherstellen(db_app_client, make_login_jwt):
+def test_admin_mib_seite_zeigt_nutzer_und_fehlende_mibs(db_app_client):
+    c = db_app_client
+    _publish(c)
+    _profile_with_mibs("MikroTik Router", [{"module": "MIKROTIK-MIB"}, {"module": "GHOST-MIB"}])
+    c.post("/admin/login", data={"username": "admin", "password": "test-admin-pass"})
+    html = c.get("/admin/mibs").text
+    assert "MikroTik Router" in html  # „benutzt von"
+    assert "GHOST-MIB" in html  # genannt, aber nicht in der Bibliothek
+
+
+@requires_db
+def test_admin_mib_seite_entfernen_und_wiederherstellen(db_app_client):
     import re
 
     c = db_app_client
     _publish(c)
-    _profile_with_mibs(
-        c, make_login_jwt, "SNMP ohne Verweis", None, "99999999-9999-9999-9999-999999999999"
-    )
+    _profile_with_mibs("SNMP ohne Verweis", None)
     c.post("/admin/login", data={"username": "admin", "password": "test-admin-pass"})
     html = c.get("/admin/mibs").text
     assert "MIKROTIK-MIB" in html and "SNMP ohne Verweis" in html

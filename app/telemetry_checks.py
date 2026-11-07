@@ -12,7 +12,7 @@ include telemetry checks, so 28 current hub profiles still list them (that is ho
 "Windows Server Base Checks" advertised 17 checks instead of 11). Two places use
 this list:
 
-  * ``services/uploads.validate_bundle`` — strips them on INGEST, so newly
+  * ``services/bundle_check.validate_bundle`` — strips them on INGEST, so newly
     uploaded bundles never store them again,
   * ``schemas/profile.check_preview_from_bundle`` — strips them on DISPLAY, so
     the already-stored bundles stop showing them on the website and in the API

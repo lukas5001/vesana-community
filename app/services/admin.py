@@ -1,9 +1,9 @@
 """Daten + Aktionen des Admin-Bereichs.
 
 Reine Abfragen und In-Place-Mutationen; die ROUTER committen (wie überall im
-Code) und schreiben das Admin-Protokoll (``app.services.admin_audit``). Die
-Review-Logik (Freigabe/Ablehnung + Benachrichtigung) bleibt in
-``app.services.uploads`` und wird hier nur benutzt, nie kopiert.
+Code) und schreiben das Admin-Protokoll (``app.services.admin_audit``).
+Review, Moderation und Q&A sind mit dem Umbau zur Vesana-Bibliothek
+(2026-11-07) entfallen; die Tabellen bleiben, die Oberfläche dafür nicht.
 
 Alle Listen sind seitenweise (``Page``) und durchsuchbar — der Hub hat heute
 gut hundert Profile und ein Dutzend Instanzen, die Oberfläche muss aber auch
@@ -27,26 +27,20 @@ from app.models.community_profile import CommunityProfile
 from app.models.community_profile_version import CommunityProfileVersion
 from app.models.instance import Instance
 from app.models.library_icon import LibraryIcon
-from app.models.mib_submission import MibSubmission
 from app.models.moderation_report import ModerationReport
 from app.models.profile_comment import ProfileComment
 from app.models.question import Question
 from app.models.vote import Vote
-from app.schemas.admin import AdminStats, InstanceItem, ReportItem
+from app.schemas.admin import AdminStats, InstanceItem
 from app.schemas.profile import VESANA_TEAM_UPLOADER
 
 # How many characters of a reported body to show as a preview snippet.
 PREVIEW_LEN = 160
 
-# Valid resolution actions and the report status each maps to.
-RESOLVE_ACTIONS = ("dismiss", "remove")
-_ACTION_STATUS = {"dismiss": "dismissed", "remove": "resolved"}
-
 PER_PAGE = 40
 
 TIERS = ("official", "beta", "community")
 REVIEW_STATES = ("pending", "approved", "rejected")
-REPORT_STATES = ("open", "resolved", "dismissed")
 
 PROFILE_SORTS = ("updated", "name", "downloads", "score", "created")
 INSTANCE_SORTS = ("seen", "joined", "name", "uploads")
@@ -121,195 +115,6 @@ def uploader_name(db: Session, profile: CommunityProfile) -> str:
     return names_for(db, {profile.uploader_instance_uuid}).get(
         profile.uploader_instance_uuid, VESANA_TEAM_UPLOADER
     )
-
-
-# ---- Moderation: reports --------------------------------------------------------
-
-
-def _target_preview(db: Session, target_type: str, target_id: str) -> str:
-    """Build a safe preview of a reported target.
-
-    Never leaks private data: a removed comment shows a placeholder, and no
-    downvote reasons / tokens / secrets are ever included.
-    """
-    if target_type == "comment":
-        comment = db.get(ProfileComment, target_id)
-        if comment is None:
-            return "[gelöscht]"
-        if comment.is_removed:
-            return "[entfernt]"
-        return _snippet(comment.body_md)
-    if target_type == "question":
-        question = db.get(Question, target_id)
-        if question is None:
-            return "[gelöscht]"
-        return _snippet(question.title_text)
-    if target_type == "answer":
-        answer = db.get(Answer, target_id)
-        if answer is None:
-            return "[gelöscht]"
-        return _snippet(answer.body_md)
-    if target_type == "profile":
-        profile = db.get(CommunityProfile, target_id)
-        if profile is None:
-            return "[gelöscht]"
-        return _snippet(profile.name)
-    return ""
-
-
-def _target_href(db: Session, target_type: str, target_id: str) -> str | None:
-    """Öffentlicher Link zum gemeldeten Ziel (damit der Admin es im Kontext sieht)."""
-    if target_type == "profile":
-        return f"/p/{target_id}"
-    if target_type == "comment":
-        comment = db.get(ProfileComment, target_id)
-        return f"/p/{comment.profile_id}?tab=comments" if comment else None
-    if target_type == "question":
-        return f"/questions/{target_id}"
-    if target_type == "answer":
-        answer = db.get(Answer, target_id)
-        return f"/questions/{answer.question_id}" if answer else None
-    return None
-
-
-def _to_report_item(db: Session, report: ModerationReport, names: dict[str, str]) -> ReportItem:
-    return ReportItem(
-        id=report.id,
-        target_type=report.target_type,
-        target_id=report.target_id,
-        reporter_uuid=report.instance_uuid,
-        reporter_display=names.get(report.instance_uuid, public_name(None, report.instance_uuid)),
-        reason=report.reason,
-        status=report.status,
-        created_at=report.created_at,
-        target_preview=_target_preview(db, report.target_type, report.target_id),
-        target_href=_target_href(db, report.target_type, report.target_id),
-    )
-
-
-def list_reports(db: Session, status_filter: str = "open") -> list[ReportItem]:
-    """List moderation reports (default: only ``open``).
-
-    Pass ``"all"`` for every report, or a specific status to filter.
-    """
-    return list_reports_page(db, status_filter, page=1, per_page=500).items
-
-
-def list_reports_page(
-    db: Session, status_filter: str = "open", *, page: int = 1, per_page: int = PER_PAGE
-) -> Page:
-    stmt = select(ModerationReport)
-    if status_filter != "all":
-        stmt = stmt.where(ModerationReport.status == status_filter)
-    stmt = stmt.order_by(ModerationReport.created_at.desc())
-    result = _paginate(db, stmt, page, per_page)
-    names = names_for(db, {r.instance_uuid for r in result.items})
-    result.items = [_to_report_item(db, r, names) for r in result.items]
-    return result
-
-
-def report_counts(db: Session) -> dict[str, int]:
-    rows = db.execute(
-        select(ModerationReport.status, func.count()).group_by(ModerationReport.status)
-    ).all()
-    counts = {s: 0 for s in REPORT_STATES}
-    for s, n in rows:
-        counts[s] = int(n)
-    counts["all"] = sum(counts.values())
-    return counts
-
-
-def resolve_report(db: Session, report_id: str, action: str) -> ModerationReport:
-    """Resolve a report. ``action`` is ``"dismiss"`` or ``"remove"``.
-
-    * ``dismiss`` -> report.status = 'dismissed' (no action on the target).
-    * ``remove``  -> act on the target (soft-remove / close) AND set
-      report.status = 'resolved'.
-
-    404 if the report is missing. A missing target is tolerated (the report is
-    still resolved) since reports survive hard target deletion by design.
-    """
-    if action not in RESOLVE_ACTIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"action must be one of {RESOLVE_ACTIONS}",
-        )
-    report = db.get(ModerationReport, report_id)
-    if report is None:
-        raise _not_found("Report")
-
-    if action == "remove":
-        _act_on_target(db, report.target_type, report.target_id)
-
-    report.status = _ACTION_STATUS[action]
-    db.flush()
-    db.refresh(report)
-    return report
-
-
-def _act_on_target(db: Session, target_type: str, target_id: str) -> None:
-    """Soft-remove / close the reported target (best-effort; missing is ok)."""
-    if target_type == "comment":
-        comment = db.get(ProfileComment, target_id)
-        if comment is not None:
-            comment.is_removed = True
-    elif target_type == "question":
-        question = db.get(Question, target_id)
-        if question is not None:
-            question.is_closed = True
-            question.closed_reason = "removed by moderator"
-    elif target_type == "answer":
-        answer = db.get(Answer, target_id)
-        if answer is not None:
-            answer.is_accepted = False
-            question = db.get(Question, answer.question_id)
-            db.delete(answer)
-            db.flush()
-            if question is not None:
-                _recount_answers(db, question)
-    elif target_type == "profile":
-        profile = db.get(CommunityProfile, target_id)
-        if profile is not None:
-            profile.is_removed = True
-    db.flush()
-
-
-# ---- Kommentare -----------------------------------------------------------------
-
-
-def set_comment_removed(db: Session, comment_id: str, removed: bool) -> ProfileComment:
-    comment = db.get(ProfileComment, comment_id)
-    if comment is None:
-        raise _not_found("Comment")
-    comment.is_removed = removed
-    db.flush()
-    return comment
-
-
-def profile_comments(db: Session, profile_id: str) -> list[dict]:
-    rows = (
-        db.execute(
-            select(ProfileComment)
-            .where(ProfileComment.profile_id == profile_id)
-            .order_by(ProfileComment.created_at.desc())
-        )
-        .scalars()
-        .all()
-    )
-    names = names_for(db, {c.instance_uuid for c in rows})
-    return [
-        {
-            "id": c.id,
-            "author": names.get(c.instance_uuid, ""),
-            "author_uuid": c.instance_uuid,
-            "body": _snippet(c.body_md),
-            "is_removed": c.is_removed,
-            "is_reply": c.parent_id is not None,
-            "score": c.vote_score,
-            "created_at": c.created_at,
-        }
-        for c in rows
-    ]
 
 
 # ---- Instanzen ------------------------------------------------------------------
@@ -763,37 +568,6 @@ def profile_counts(db: Session) -> dict[str, int]:
     return counts
 
 
-def review_counts(db: Session) -> dict[str, int]:
-    """Zähler der Review-Chips — dieselbe Grundmenge wie die Liste: alles mit Uploader."""
-    rows = db.execute(
-        select(CommunityProfile.review_status, func.count())
-        .where(
-            CommunityProfile.is_removed.is_(False),
-            CommunityProfile.uploader_instance_uuid.is_not(None),
-        )
-        .group_by(CommunityProfile.review_status)
-    ).all()
-    counts = {s: 0 for s in REVIEW_STATES}
-    for s, n in rows:
-        counts[s] = int(n)
-    counts["all"] = sum(counts.values())
-    return counts
-
-
-def profile_report_count(db: Session, profile_id: str) -> int:
-    return int(
-        db.execute(
-            select(func.count())
-            .select_from(ModerationReport)
-            .where(
-                ModerationReport.target_type == "profile",
-                ModerationReport.target_id == profile_id,
-                ModerationReport.status == "open",
-            )
-        ).scalar_one()
-    )
-
-
 def bundle_scripts(bundle: dict | None) -> list[dict]:
     """Die im Bundle mitgelieferten Scripts (Name, Interpreter, Rumpf) — für die Prüfung."""
     if not isinstance(bundle, dict):
@@ -817,7 +591,7 @@ def bundle_scripts(bundle: dict | None) -> list[dict]:
 
 def findings_by_line(scripts: list[dict], findings: list[dict]) -> list[dict]:
     """Fundstellen des Script-Gates auf Zeilen des Rumpfs abbilden (für die Anzeige)."""
-    from app.services.uploads import SCRIPT_MARKERS
+    from app.services.bundle_check import SCRIPT_MARKERS
 
     for script in scripts:
         hits: list[dict] = []
@@ -828,108 +602,6 @@ def findings_by_line(scripts: list[dict], findings: list[dict]) -> list[dict]:
                 hits.append({"line": idx, "text": line, "markers": markers})
         script["hits"] = hits
     return scripts
-
-
-# ---- Fragen & Antworten ---------------------------------------------------------
-
-
-def _recount_answers(db: Session, question: Question) -> None:
-    total = db.execute(
-        select(func.count()).select_from(Answer).where(Answer.question_id == question.id)
-    ).scalar_one()
-    question.answer_count = int(total)
-    db.flush()
-
-
-def search_questions(
-    db: Session,
-    *,
-    q: str | None = None,
-    state: str | None = None,  # open | closed | unanswered
-    page: int = 1,
-) -> Page:
-    stmt = select(Question)
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(Question.title_text.ilike(like), Question.body_md.ilike(like)))
-    if state == "open":
-        stmt = stmt.where(Question.is_closed.is_(False))
-    elif state == "closed":
-        stmt = stmt.where(Question.is_closed.is_(True))
-    elif state == "unanswered":
-        stmt = stmt.where(Question.is_closed.is_(False), Question.answer_count == 0)
-    stmt = stmt.order_by(Question.created_at.desc())
-    result = _paginate(db, stmt, page)
-    result.extra["names"] = names_for(db, {qn.instance_uuid for qn in result.items})
-    return result
-
-
-def question_counts(db: Session) -> dict[str, int]:
-    total = int(db.execute(select(func.count()).select_from(Question)).scalar_one())
-    closed = int(
-        db.execute(
-            select(func.count()).select_from(Question).where(Question.is_closed.is_(True))
-        ).scalar_one()
-    )
-    unanswered = int(
-        db.execute(
-            select(func.count())
-            .select_from(Question)
-            .where(Question.is_closed.is_(False), Question.answer_count == 0)
-        ).scalar_one()
-    )
-    return {"all": total, "open": total - closed, "closed": closed, "unanswered": unanswered}
-
-
-def get_question(db: Session, question_id: str) -> Question:
-    question = db.get(Question, question_id)
-    if question is None:
-        raise _not_found("Question")
-    return question
-
-
-def close_question(db: Session, question_id: str, reason: str | None) -> Question:
-    question = get_question(db, question_id)
-    question.is_closed = True
-    question.closed_reason = (reason or "").strip() or "closed by moderator"
-    db.flush()
-    return question
-
-
-def reopen_question(db: Session, question_id: str) -> Question:
-    question = get_question(db, question_id)
-    question.is_closed = False
-    question.closed_reason = None
-    question.duplicate_of_id = None
-    db.flush()
-    return question
-
-
-def set_question_team(db: Session, question_id: str, flag: bool) -> Question:
-    question = get_question(db, question_id)
-    question.is_vesana_team = flag
-    db.flush()
-    return question
-
-
-def delete_answer(db: Session, answer_id: str) -> Question:
-    answer = db.get(Answer, answer_id)
-    if answer is None:
-        raise _not_found("Answer")
-    question = get_question(db, answer.question_id)
-    db.delete(answer)
-    db.flush()
-    _recount_answers(db, question)
-    return question
-
-
-def set_answer_team(db: Session, answer_id: str, flag: bool) -> Answer:
-    answer = db.get(Answer, answer_id)
-    if answer is None:
-        raise _not_found("Answer")
-    answer.is_vesana_team = flag
-    db.flush()
-    return answer
 
 
 # ---- Icons ----------------------------------------------------------------------
@@ -1083,47 +755,8 @@ def stats(db: Session) -> AdminStats:
     )
 
 
-def tasks(db: Session) -> dict[str, int]:
-    """„Was braucht mich" — die Zahlen, die eine Handlung verlangen."""
-    return {
-        "pending": _count(
-            db,
-            select(func.count())
-            .select_from(CommunityProfile)
-            .where(
-                CommunityProfile.is_removed.is_(False),
-                CommunityProfile.review_status == "pending",
-            ),
-        ),
-        "reports": _count(
-            db,
-            select(func.count())
-            .select_from(ModerationReport)
-            .where(ModerationReport.status == "open"),
-        ),
-        "unanswered": _count(
-            db,
-            select(func.count())
-            .select_from(Question)
-            .where(Question.is_closed.is_(False), Question.answer_count == 0),
-        ),
-        "mib_submissions": _count(
-            db,
-            select(func.count())
-            .select_from(MibSubmission)
-            .where(MibSubmission.status == "pending"),
-        ),
-        "comments_total": _count(
-            db,
-            select(func.count())
-            .select_from(ProfileComment)
-            .where(ProfileComment.is_removed.is_(False)),
-        ),
-    }
-
-
 def activity(db: Session, limit: int = 20) -> list[dict]:
-    """Jüngste Bewegung in der Community — ein Strom über alle Tabellen."""
+    """Jüngste Bewegung im Katalog — Profile, Versionen, neue Instanzen."""
     events: list[dict] = []
     for p in (
         db.execute(
@@ -1162,64 +795,6 @@ def activity(db: Session, limit: int = 20) -> list[dict]:
                 "title": f"{v.profile.name if v.profile else '?'} {v.version_tag}",
                 "href": f"/admin/profiles/{v.profile_id}",
                 "extra": None,
-            }
-        )
-    for c in (
-        db.execute(select(ProfileComment).order_by(ProfileComment.created_at.desc()).limit(limit))
-        .scalars()
-        .all()
-    ):
-        events.append(
-            {
-                "kind": "comment",
-                "at": c.created_at,
-                "actor": c.instance_uuid,
-                "title": _snippet(c.body_md),
-                "href": f"/p/{c.profile_id}?tab=comments",
-                "extra": "removed" if c.is_removed else None,
-            }
-        )
-    for qn in (
-        db.execute(select(Question).order_by(Question.created_at.desc()).limit(limit))
-        .scalars()
-        .all()
-    ):
-        events.append(
-            {
-                "kind": "question",
-                "at": qn.created_at,
-                "actor": qn.instance_uuid,
-                "title": qn.title_text,
-                "href": f"/questions/{qn.id}",
-                "extra": None,
-            }
-        )
-    for a in db.execute(select(Answer).order_by(Answer.created_at.desc()).limit(limit)).scalars():
-        events.append(
-            {
-                "kind": "answer",
-                "at": a.created_at,
-                "actor": a.instance_uuid,
-                "title": _snippet(a.body_md),
-                "href": f"/questions/{a.question_id}",
-                "extra": None,
-            }
-        )
-    for r in (
-        db.execute(
-            select(ModerationReport).order_by(ModerationReport.created_at.desc()).limit(limit)
-        )
-        .scalars()
-        .all()
-    ):
-        events.append(
-            {
-                "kind": "report",
-                "at": r.created_at,
-                "actor": r.instance_uuid,
-                "title": _snippet(r.reason),
-                "href": "/admin/moderation",
-                "extra": r.status,
             }
         )
     for i in db.execute(

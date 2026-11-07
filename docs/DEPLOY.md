@@ -8,21 +8,13 @@ Prod VPS: `82.165.251.29` · path `/opt/vesana-community/` · shared Postgres 17
 (native, user `vesana`). SSH via the Bitwarden agent:
 `SSH_AUTH_SOCK=/home/lukas/.bitwarden-ssh-agent.sock ssh root@82.165.251.29`.
 
-## 1. Secrets — Ed25519 keypair (one-time)
+## 1. Secrets
 
-```bash
-# locally, in this repo
-python scripts/gen_portal_keypair.py --out-dir ./secrets
-# -> secrets/portal_ed25519_private.pem  (licence portal ONLY)
-# -> secrets/portal_ed25519_public.pem   (community app)
-```
-
-- Install the **private** PEM on the licence portal
-  (`/opt/vesana-license-portal/secrets/`, chmod 600) and add the
-  `issue-login-token` endpoint (`docs/portal-issue-login-token.md`).
-- Install the **public** PEM on the community app and point
-  `PORTAL_PUBLIC_KEY_PATH` at it.
-- Generate the community `SECRET_KEY`: `python -c "import secrets;print(secrets.token_urlsafe(48))"`.
+- Generate the community `SECRET_KEY` (signs the admin session cookie):
+  `python -c "import secrets;print(secrets.token_urlsafe(48))"`.
+- Seit 0.16.0 (Vesana-Bibliothek) gibt es keine Instanz-Anmeldung mehr — das
+  Portal-Schlüsselpaar und `PORTAL_PUBLIC_KEY(_PATH)` werden nicht mehr
+  gebraucht (alte Werte in der `.env` stören nicht).
 
 ## 2. Postgres schema (shared instance, dedicated `community` schema)
 
@@ -44,9 +36,6 @@ host gateway / host network — mirror how the licence portal connects.)
 ```ini
 DATABASE_URL=postgresql+psycopg://vesana:vesana_prod_2026@<pg-host>:5432/vesana
 SECRET_KEY=<token_urlsafe(48)>
-PORTAL_PUBLIC_KEY_PATH=/app/secrets/portal_ed25519_public.pem
-API_TOKEN_TTL_DAYS=30
-LOGIN_TOKEN_LEEWAY_SECONDS=30
 COMMUNITY_ADMIN_USER=lukas
 COMMUNITY_ADMIN_PASSWORD=<strong-distinct-from-portal>
 COMMUNITY_ADMIN_IDLE_MINUTES=480

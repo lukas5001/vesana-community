@@ -1,48 +1,22 @@
 """Shared pytest fixtures.
 
 Key ideas:
-* A freshly generated Ed25519 keypair stands in for the licence portal. Its
-  PUBLIC key PEM is injected into the environment BEFORE the app/config is
-  imported, so vesana-community verifies login JWTs we mint with the matching
-  PRIVATE key.
-* ``make_login_jwt`` mints valid portal login JWTs for tests.
 * DB-dependent tests are skipped unless ``DATABASE_URL_TEST`` is set to a
-  reachable Postgres; pure crypto/logic tests always run.
+  reachable Postgres; pure logic tests always run.
+* Testdaten entstehen direkt in der DB (``insert_profile``/``insert_instance``)
+  — Uploads und Instanz-Anmeldung gibt es seit der Vesana-Bibliothek nicht mehr.
 """
 
 from __future__ import annotations
 
 import os
-import uuid
 from datetime import UTC, datetime, timedelta
 
-import jwt
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-# --- Generate a portal keypair and configure the environment up-front -------
-# This MUST happen before app.config / app.db / app.main are imported anywhere,
-# because app.db builds its engine from DATABASE_URL at first import.
-_PORTAL_PRIVATE_KEY = Ed25519PrivateKey.generate()
-_PORTAL_PRIVATE_PEM = _PORTAL_PRIVATE_KEY.private_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PrivateFormat.PKCS8,
-    encryption_algorithm=serialization.NoEncryption(),
-).decode("utf-8")
-_PORTAL_PUBLIC_PEM = (
-    _PORTAL_PRIVATE_KEY.public_key()
-    .public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    .decode("utf-8")
-)
 
 TEST_SECRET_KEY = "test-secret-key-do-not-use-in-prod"
 
 os.environ["SECRET_KEY"] = TEST_SECRET_KEY
-os.environ["PORTAL_PUBLIC_KEY"] = _PORTAL_PUBLIC_PEM
 os.environ["COMMUNITY_ADMIN_USER"] = "admin"
 os.environ["COMMUNITY_ADMIN_PASSWORD"] = "test-admin-pass"
 os.environ["API_TOKEN_TTL_DAYS"] = "30"
@@ -60,60 +34,6 @@ else:
         "DATABASE_URL",
         "postgresql+psycopg://community:community@localhost:5432/community",
     )
-
-LOGIN_ISSUER = "vesana-licence-portal"
-
-
-@pytest.fixture(scope="session")
-def portal_private_pem() -> str:
-    return _PORTAL_PRIVATE_PEM
-
-
-@pytest.fixture(scope="session")
-def portal_public_pem() -> str:
-    return _PORTAL_PUBLIC_PEM
-
-
-@pytest.fixture(scope="session")
-def make_login_jwt():
-    """Return a factory that mints portal-signed login JWTs.
-
-    Usage::
-
-        token = make_login_jwt()                      # all defaults
-        token = make_login_jwt(sub="...", exp_delta=timedelta(minutes=-1))
-    """
-
-    def _make(
-        *,
-        sub: str | None = None,
-        display_name: str = "Test Instance",
-        avatar_b64: str | None = None,
-        jti: str | None = None,
-        iss: str = LOGIN_ISSUER,
-        iat_delta: timedelta = timedelta(0),
-        exp_delta: timedelta = timedelta(minutes=5),
-        algorithm: str = "EdDSA",
-        signing_key: str | None = None,
-        extra_claims: dict | None = None,
-    ) -> str:
-        now = datetime.now(UTC)
-        payload: dict = {
-            "iss": iss,
-            "sub": sub or str(uuid.uuid4()),
-            "display_name": display_name,
-            "jti": jti or str(uuid.uuid4()),
-            "iat": int((now + iat_delta).timestamp()),
-            "exp": int((now + exp_delta).timestamp()),
-        }
-        if avatar_b64 is not None:
-            payload["avatar_b64"] = avatar_b64
-        if extra_claims:
-            payload.update(extra_claims)
-        key = signing_key if signing_key is not None else _PORTAL_PRIVATE_PEM
-        return jwt.encode(payload, key, algorithm=algorithm)
-
-    return _make
 
 
 # --- DB availability gate ---------------------------------------------------
@@ -213,3 +133,69 @@ def db_app_client(_db_schema):
     app = create_app()
     with TestClient(app) as c:
         yield c
+
+
+# --- Datenhelfer (DB-Tests) -------------------------------------------------
+# Uploads und Instanz-Anmeldung gibt es seit dem Umbau zur Vesana-Bibliothek
+# (2026-11-07) nicht mehr — Testdaten kommen direkt in die DB, so wie sie das
+# Signier-Werkzeug bzw. der Altbestand hinterlassen.
+
+
+def insert_instance(uuid_: str, display_name: str = "Test Instance") -> str:
+    from app.db import SessionLocal
+    from app.models.instance import Instance
+
+    with SessionLocal() as db:
+        db.add(Instance(uuid=uuid_, display_name=display_name, is_blocked=False))
+        db.commit()
+    return uuid_
+
+
+def insert_profile(
+    name: str,
+    *,
+    tier: str = "community",
+    review_status: str = "pending",
+    vendor: str = "ACME",
+    uploader: str | None = None,
+    bundle: dict | None = None,
+    signed: bool = False,
+) -> str:
+    """Profil + eine (``is_current``) Version; ``signed`` ⇒ für alle freigegeben."""
+    from app.db import SessionLocal
+    from app.models.community_profile import CommunityProfile
+    from app.models.community_profile_version import CommunityProfileVersion
+
+    bundle = bundle or {
+        "schema_version": 1,
+        "profile": {"name": name, "vendor": vendor},
+        "checks": [{"check_type": "ping", "check_config": {"host": "1.1.1.1"}}],
+    }
+    with SessionLocal() as db:
+        profile = CommunityProfile(
+            name=name,
+            vendor=vendor,
+            tier=tier,
+            review_status=review_status,
+            approved=review_status == "approved",
+            uploader_instance_uuid=uploader,
+        )
+        db.add(profile)
+        db.flush()
+        version = CommunityProfileVersion(
+            profile_id=profile.id,
+            version_tag="1.0.0",
+            bundle_json=bundle,
+            is_current=True,
+            signed_envelope=(
+                {"format": "vesana-library-sig/1", "key_id": "k", "sig": "s", "payload": "{}"}
+                if signed
+                else None
+            ),
+            released_all_at=datetime.now(UTC) - timedelta(minutes=1) if signed else None,
+        )
+        db.add(version)
+        db.flush()
+        profile.latest_version_id = version.id
+        db.commit()
+        return profile.id

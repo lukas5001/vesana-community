@@ -1,8 +1,11 @@
-"""Shared query helpers for the profile library.
+"""Shared query helpers for the profile library (Vesana-Bibliothek).
 
-Used by both the JSON API (``app/routers/profiles.py``) and the
-server-rendered pages (``app/routers/pages.py``) so browse/detail behave
-identically. All queries are sync SQLAlchemy 2.0 against the community schema.
+Used by the JSON API (``app/routers/profiles.py``) and the admin MIB overview.
+All queries are sync SQLAlchemy 2.0 against the community schema.
+
+Kanäle (2026-11-07): eine Instanz schickt ``X-Vesana-Channel: tester|stable``
+(fehlt/unbekannt ⇒ stable). Welche Version eine Instanz sieht, entscheidet
+AUSSCHLIESSLICH ``is_released_for`` — nicht mehr ``is_current``.
 """
 
 from __future__ import annotations
@@ -25,6 +28,59 @@ SORT_OPTIONS = ("trending", "popularity", "newest", "name")
 DEFAULT_SORT = "trending"
 DEFAULT_LIMIT = 30
 MAX_LIMIT = 100
+
+
+# ---- Kanäle ------------------------------------------------------------------
+
+CHANNEL_TESTER = "tester"
+CHANNEL_STABLE = "stable"
+CHANNELS = (CHANNEL_TESTER, CHANNEL_STABLE)
+
+
+def normalize_channel(value: str | None) -> str:
+    """``X-Vesana-Channel`` → Kanal. Fehlt oder unbekannt ⇒ stable (alte Instanzen
+    schicken den Kopf nicht und bekommen so nur, was für alle freigegeben ist)."""
+    v = (value or "").strip().lower()
+    return v if v in CHANNELS else CHANNEL_STABLE
+
+
+def is_released_for(
+    version: CommunityProfileVersion, channel: str, now: datetime | None = None
+) -> bool:
+    """DIE eine Regel, ob eine Version an einen Kanal ausgeliefert wird.
+
+    Freigegeben für Kanal c ⇔ signiert (``signed_envelope`` gesetzt) UND
+    (c == tester ODER ``released_all_at <= now``). Eine unsignierte Version
+    sieht niemand; ohne ``released_all_at`` bleibt sie beim Tester-Kanal.
+    """
+    if not version.signed_envelope:
+        return False
+    if normalize_channel(channel) == CHANNEL_TESTER:
+        return True
+    released = version.released_all_at
+    if released is None:
+        return False
+    now = now or datetime.now(UTC)
+    if released.tzinfo is None:
+        released = released.replace(tzinfo=UTC)
+    return released <= now
+
+
+def released_versions(
+    profile: CommunityProfile, channel: str, now: datetime | None = None
+) -> list[CommunityProfileVersion]:
+    """Die für den Kanal freigegebenen Versionen, neueste zuerst."""
+    now = now or datetime.now(UTC)
+    versions = sorted(profile.versions or [], key=lambda v: v.created_at, reverse=True)
+    return [v for v in versions if is_released_for(v, channel, now)]
+
+
+def latest_released_version(
+    profile: CommunityProfile, channel: str, now: datetime | None = None
+) -> CommunityProfileVersion | None:
+    """Die aktuelle Version für den Kanal (neueste freigegebene) oder None."""
+    released = released_versions(profile, channel, now)
+    return released[0] if released else None
 
 
 @dataclass(frozen=True)
@@ -68,6 +124,10 @@ def _visibility_clause():
     ``uploads.create_or_version_profile``), so pushing a poisoned v2 onto an
     already-approved profile takes the WHOLE profile offline until an admin
     re-approves it — fail-closed, by design.
+
+    Seit der Vesana-Bibliothek (2026-11-07) gibt es keine Uploads mehr; die
+    Klausel bleibt für den Altbestand. Zusätzlich muss jede ausgelieferte
+    Version für den Kanal freigegeben sein (``is_released_for``).
     """
     return (
         CommunityProfile.is_removed.is_(False),
@@ -135,10 +195,13 @@ def list_profiles(
     db: Session,
     filters: ProfileFilters,
     *,
+    channel: str = CHANNEL_STABLE,
     now: datetime | None = None,
 ) -> tuple[list[CommunityProfile], int]:
     """Return (page_of_profiles, total_matching).
 
+    Nur Profile mit einer für den Kanal freigegebenen Version zählen — ein
+    Profil ohne signierte/freigegebene Version ist für diesen Kanal unsichtbar.
     Sorting is done in Python so the trending formula stays identical to the
     unit-tested pure function in ``app.services.ranking``.
     """
@@ -148,14 +211,12 @@ def list_profiles(
     offset = max(0, filters.offset)
 
     stmt = _apply_filters(_base_select(), filters).options(selectinload(CommunityProfile.versions))
-
-    count_stmt = _apply_filters(
-        select(func.count()).select_from(CommunityProfile).where(*_visibility_clause()),
-        filters,
-    )
-    total = db.execute(count_stmt).scalar_one()
-
-    profiles = list(db.execute(stmt).scalars().all())
+    profiles = [
+        p
+        for p in db.execute(stmt).scalars().all()
+        if latest_released_version(p, channel, now) is not None
+    ]
+    total = len(profiles)
     if sort == "name":
         profiles.sort(key=lambda p: (p.name or "").casefold())
     else:
@@ -164,63 +225,67 @@ def list_profiles(
     return page, total
 
 
-def get_profile(db: Session, profile_id: str) -> CommunityProfile | None:
-    """Fetch a single visible profile (or None if missing/removed/hidden)."""
+def get_profile(
+    db: Session, profile_id: str, channel: str = CHANNEL_STABLE
+) -> CommunityProfile | None:
+    """Fetch a single visible profile (None if missing/removed/hidden or if it has
+    no version released for ``channel``)."""
     stmt = (
         _base_select()
         .where(CommunityProfile.id == profile_id)
         .options(selectinload(CommunityProfile.versions))
     )
-    return db.execute(stmt).scalar_one_or_none()
+    profile = db.execute(stmt).scalar_one_or_none()
+    if profile is None or latest_released_version(profile, channel) is None:
+        return None
+    return profile
 
 
-def latest_version_tag(profile: CommunityProfile) -> str | None:
-    current = profile.current_version
-    if current is not None:
-        return current.version_tag
-    if profile.versions:
-        return profile.versions[0].version_tag
-    return None
-
-
-def profiles_by_mib(db: Session) -> dict[str, list[dict[str, str]]]:
-    """MIB-Modul → sichtbare Profile, deren AKTUELLE Version es nennt
-    (``bundle.mibs``). Speist die MIB-Seiten des Hubs („benutzt von …")."""
-    from app.services.mib_library import mib_refs_of_bundle
-
-    rows = db.execute(
-        select(CommunityProfile.id, CommunityProfile.name, CommunityProfileVersion.bundle_json)
-        .join(
-            CommunityProfileVersion,
-            (CommunityProfileVersion.profile_id == CommunityProfile.id)
-            & CommunityProfileVersion.is_current.is_(True),
-        )
-        .where(*_visibility_clause(), CommunityProfileVersion.bundle_json.has_key("mibs"))
+def released_profiles(
+    db: Session, channel: str = CHANNEL_STABLE, *extra_where
+) -> list[tuple[CommunityProfile, CommunityProfileVersion]]:
+    """(Profil, freigegebene aktuelle Version) aller sichtbaren Profile mit einer
+    für den Kanal freigegebenen Version, nach Name sortiert."""
+    now = datetime.now(UTC)
+    stmt = (
+        _base_select()
+        .where(*extra_where)
+        .options(selectinload(CommunityProfile.versions))
         .order_by(func.lower(CommunityProfile.name))
-    ).all()
-    out: dict[str, list[dict[str, str]]] = {}
-    for pid, name, bundle in rows:
-        for ref in mib_refs_of_bundle(bundle):
-            users = out.setdefault(ref["module"], [])
-            if not any(u["id"] == pid for u in users):
-                users.append({"id": pid, "name": name})
+    )
+    out = []
+    for profile in db.execute(stmt).scalars().all():
+        version = latest_released_version(profile, channel, now)
+        if version is not None:
+            out.append((profile, version))
     return out
 
 
-def snmp_profiles_without_mibs(db: Session) -> list[dict[str, str]]:
-    """Sichtbare SNMP-Profile, deren aktuelle Version KEINE MIB nennt — die
-    Kurator-Liste „hier fehlt vielleicht ein Verweis" (Standard-MIBs liefert
-    Vesana selbst mit, deshalb ist nicht jeder Eintrag ein Fehler)."""
-    rows = db.execute(
-        select(CommunityProfile.id, CommunityProfile.name, CommunityProfileVersion.bundle_json)
-        .join(
-            CommunityProfileVersion,
-            (CommunityProfileVersion.profile_id == CommunityProfile.id)
-            & CommunityProfileVersion.is_current.is_(True),
-        )
-        .where(*_visibility_clause(), CommunityProfile.requires_snmp.is_(True))
-        .order_by(func.lower(CommunityProfile.name))
-    ).all()
+def profiles_by_mib(db: Session, channel: str = CHANNEL_STABLE) -> dict[str, list[dict[str, str]]]:
+    """MIB-Modul → sichtbare Profile, deren für den Kanal AKTUELLE (neueste
+    freigegebene) Version es nennt (``bundle.mibs``). Speist die Kurator-Sicht
+    der MIB-Bibliothek („benutzt von …")."""
     from app.services.mib_library import mib_refs_of_bundle
 
-    return [{"id": pid, "name": name} for pid, name, b in rows if not mib_refs_of_bundle(b)]
+    out: dict[str, list[dict[str, str]]] = {}
+    for profile, version in released_profiles(db, channel):
+        for ref in mib_refs_of_bundle(version.bundle_json):
+            users = out.setdefault(ref["module"], [])
+            if not any(u["id"] == profile.id for u in users):
+                users.append({"id": profile.id, "name": profile.name})
+    return out
+
+
+def snmp_profiles_without_mibs(db: Session, channel: str = CHANNEL_STABLE) -> list[dict[str, str]]:
+    """Sichtbare SNMP-Profile, deren aktuelle freigegebene Version KEINE MIB nennt —
+    die Kurator-Liste „hier fehlt vielleicht ein Verweis" (Standard-MIBs liefert
+    Vesana selbst mit, deshalb ist nicht jeder Eintrag ein Fehler)."""
+    from app.services.mib_library import mib_refs_of_bundle
+
+    return [
+        {"id": profile.id, "name": profile.name}
+        for profile, version in released_profiles(
+            db, channel, CommunityProfile.requires_snmp.is_(True)
+        )
+        if not mib_refs_of_bundle(version.bundle_json)
+    ]

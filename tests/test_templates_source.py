@@ -38,14 +38,10 @@ def test_every_template_key_exists_in_both_languages() -> None:
 
 
 def test_dynamic_label_keys_exist_for_known_values() -> None:
-    """lbl('cat'|'sort'|'qsort'|'qfilter', wert) hat für jeden bekannten Wert einen Text."""
+    """lbl('sort', wert) hat für jeden bekannten Wert einen Text."""
     from app.services.profiles import SORT_OPTIONS
-    from app.services.qa import FILTER_OPTIONS
-    from app.services.qa import SORT_OPTIONS as QA_SORT
 
     expected = {f"sort.{o}" for o in SORT_OPTIONS}
-    expected |= {f"qsort.{o}" for o in QA_SORT}
-    expected |= {f"qfilter.{o}" for o in FILTER_OPTIONS}
     for lang in ("de", "en"):
         missing = sorted(k for k in expected if k not in TRANSLATIONS[lang])
         assert not missing, f"{lang}: {missing}"
@@ -68,21 +64,6 @@ def test_icon_slug_is_rendered_as_symbol_not_text() -> None:
     for path in TEMPLATES:
         text = path.read_text(encoding="utf-8")
         assert "{{ p.icon }}" not in text and "profile.icon }}" not in text, path.name
-    tile = (ROOT / "templates" / "_tile.html").read_text(encoding="utf-8")
-    assert 'href="#i-{{ p.icon_slug }}"' in tile
-
-
-def test_question_page_has_no_hardcoded_english() -> None:
-    """question.html war komplett englisch hart kodiert."""
-    text = (ROOT / "templates" / "question.html").read_text(encoding="utf-8")
-    for phrase in (
-        "Back to questions",
-        "Your answer",
-        "Post answer",
-        "No answers yet",
-        "Related profile",
-    ):
-        assert phrase not in text, phrase
 
 
 def test_css_uses_brand_tokens_only() -> None:

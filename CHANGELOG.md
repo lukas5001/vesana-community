@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.16.0 — Vesana-Bibliothek
+
+Der Hub wird zur Vesana-Bibliothek: ein schreibgeschützter, vom Hersteller
+kuratierter, signierter Profil-Katalog, den Instanzen abrufen.
+
+- Migration `0016`: je Profil-Version `signed_envelope` (JSONB, vom externen
+  Signier-Werkzeug geschrieben, der Hub rechnet nie Signaturen) und
+  `released_all_at` (ab wann der Stable-Kanal sie sieht; Bestand = `created_at`).
+- Kanäle über `X-Vesana-Channel: tester|stable` (fehlt/unbekannt ⇒ stable).
+  Ausgeliefert wird nur, was signiert ist und für den Kanal freigegeben
+  (Tester sofort, Stable ab `released_all_at`) — Liste, Detail, Versionen,
+  `match-rules` und das alte `/bundle` folgen derselben Regel. Antwortformen
+  bleiben gleich.
+- Neu: `GET /api/v1/profiles/{id}/versions/{vid}/signed` liefert die
+  gespeicherte signierte Hülle (zählt als Download).
+- Entfallen: öffentliche Website, Q&A, Uploads, Abstimmungen/Kommentare,
+  Benachrichtigungen, Instanz-Anmeldung (SSO/API-Token), MIB-Vorschläge von
+  Instanzen; im Admin Review, Moderation, Fragen und MIB-Vorschläge. `/`
+  leitet auf github.com/vesana-org/community. Tabellen und Daten bleiben.
+- Achtung Betrieb: bis das Signier-Werkzeug Hüllen schreibt, sieht keine
+  Instanz ein Profil.
+
 ## 0.15.0 — Profil-Prüfung beim Hochladen
 
 - Jedes hochgeladene Profil (API und Formular, auch eine neue Version eines

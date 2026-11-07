@@ -9,8 +9,8 @@ from app.schemas import (
     ProfileSummary,
     check_preview_from_bundle,
 )
+from app.services.bundle_check import validate_bundle
 from app.services.ranking import RECENCY_BOOST, trending_score
-from app.services.uploads import validate_bundle
 from app.telemetry_checks import AGENT_TELEMETRY_CHECK_TYPES
 
 from .conftest import requires_db
@@ -143,6 +143,16 @@ def test_profile_summary_serialization() -> None:
 # --------------------------------------------------------------------------- #
 # DB-backed tests (require Postgres via DATABASE_URL_TEST)
 # --------------------------------------------------------------------------- #
+def _envelope(tag: str) -> dict:
+    """Eine Hülle wie vom Signier-Werkzeug — der Hub prüft sie nie, er reicht sie nur durch."""
+    return {
+        "format": "vesana-library-sig/1",
+        "key_id": "test-key",
+        "sig": f"sig-{tag}",
+        "payload": '{"schema_version":1}',
+    }
+
+
 def _make_profile(
     db,
     *,
@@ -158,6 +168,8 @@ def _make_profile(
     created_at: datetime | None = None,
     version_tag: str = "1.0.0",
     checks: list[dict] | None = None,
+    signed: bool = True,
+    released_all_at: datetime | None | str = "past",
 ):
     from app.models.community_profile import CommunityProfile
     from app.models.community_profile_version import CommunityProfileVersion
@@ -189,6 +201,12 @@ def _make_profile(
         },
         changelog_md="Initial.",
         is_current=True,
+        signed_envelope=_envelope(version_tag) if signed else None,
+        released_all_at=(
+            datetime.now(UTC) - timedelta(minutes=1)
+            if released_all_at == "past"
+            else released_all_at
+        ),
     )
     db.add(version)
     db.flush()
@@ -388,10 +406,12 @@ def test_approving_a_community_upload_makes_it_visible(db_app_client) -> None:
     assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 404
 
     from app.db import SessionLocal
-    from app.services.uploads import approve
+    from app.models.community_profile import CommunityProfile
 
     with SessionLocal() as db:
-        approve(db, pid)
+        profile = db.get(CommunityProfile, pid)
+        profile.review_status = "approved"
+        profile.approved = True
         db.commit()
 
     assert db_app_client.get(f"/api/v1/profiles/{pid}").status_code == 200
@@ -416,7 +436,10 @@ def test_curated_tiers_bypass_review_status(db_app_client) -> None:
 
 @requires_db
 def test_seed_is_idempotent(db_app_client) -> None:
+    from sqlalchemy import func, select
+
     from app.db import SessionLocal
+    from app.models.community_profile import CommunityProfile
     from app.seed import seed
 
     with SessionLocal() as db:
@@ -425,12 +448,16 @@ def test_seed_is_idempotent(db_app_client) -> None:
         second = seed(db)
     assert first == second
 
-    r = db_app_client.get("/api/v1/profiles", params={"limit": 100})
-    body = r.json()
     # Re-running seed must not duplicate profiles.
-    assert body["total"] == first
-    names = {item["name"] for item in body["items"]}
-    assert "UniFi Switch" in names
+    with SessionLocal() as db:
+        assert db.execute(select(func.count()).select_from(CommunityProfile)).scalar_one() == first
+
+    # Seed-Versionen sind unsigniert — die Bibliothek liefert sie an niemanden aus.
+    for channel in ("tester", "stable"):
+        body = db_app_client.get(
+            "/api/v1/profiles", params={"limit": 100}, headers={"X-Vesana-Channel": channel}
+        ).json()
+        assert body["total"] == 0
 
 
 # --------------------------------------------------------------------------- #

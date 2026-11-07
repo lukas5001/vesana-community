@@ -1,32 +1,30 @@
-"""FastAPI application factory and HTML index for vesana-community."""
+"""FastAPI application factory for vesana-community — die Vesana-Bibliothek.
+
+Seit 2026-11-07 ein schreibgeschützter, signierter Katalog (Profile, Icons,
+MIBs), den Vesana-Instanzen abrufen, plus der Admin-Bereich des Betreibers.
+Website, Q&A, Uploads und Instanz-Anmeldung sind entfallen.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.auth.gate import VisitorGateRequired
 from app.config import get_settings
 from app.routers import (
     admin_api,
     admin_auth,
     admin_pages,
-    auth,
-    community_interactions,
     health,
     icon_library,
     mib_library,
-    notifications,
-    pages,
     profiles,
-    qa,
-    uploads,
+    site,
 )
-from app.templating import templates
 from app.version import VERSION
 
 _BASE_DIR = Path(__file__).resolve().parent
@@ -36,7 +34,7 @@ _STATIC_DIR = _BASE_DIR / "static"
 def create_app() -> FastAPI:
     settings = get_settings()
 
-    app = FastAPI(title="Vesana Community Hub", version=VERSION)
+    app = FastAPI(title="Vesana Library", version=VERSION)
 
     # Signed, httponly session cookie keyed on SECRET_KEY (itsdangerous).
     app.add_middleware(
@@ -70,32 +68,21 @@ def create_app() -> FastAPI:
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
-    @app.exception_handler(VisitorGateRequired)
-    async def _visitor_gate(request: Request, exc: VisitorGateRequired):
-        """HTML-Seite ohne Instanz-Sitzung → Tor-Seite (403, nicht indexierbar)."""
-        response = templates.TemplateResponse(request, "gate.html", {}, status_code=403)
-        response.headers["X-Robots-Tag"] = "noindex, nofollow"
-        return response
-
     @app.get("/robots.txt", include_in_schema=False)
     def _robots() -> PlainTextResponse:
         return PlainTextResponse("User-agent: *\nDisallow: /\n")
 
     app.include_router(health.router)
-    app.include_router(auth.router)
     app.include_router(profiles.router)
+    app.include_router(profiles.lint_router)
     app.include_router(icon_library.router)
     app.include_router(mib_library.router)
-    app.include_router(community_interactions.router)
-    app.include_router(qa.router)
-    app.include_router(uploads.router)
-    app.include_router(notifications.router)
     # Admin: session-based login page + server-rendered admin pages + JSON API.
     app.include_router(admin_auth.router)
     app.include_router(admin_api.router)
     app.include_router(admin_pages.router)
-    # Pages router owns "/" (the browse view) and "/p/{id}" (detail).
-    app.include_router(pages.router)
+    # "/" → GitHub (Community), "/lang/{code}" für die Admin-Sprachwahl.
+    app.include_router(site.router)
 
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
