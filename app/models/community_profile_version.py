@@ -53,6 +53,14 @@ class CommunityProfileVersion(Base):
     is_current: Mapped[bool] = mapped_column(
         Boolean, server_default="false", nullable=False, default=False
     )
+    # Bibliothek (Migration 0016): die vom externen Signier-Werkzeug geschriebene
+    # Hülle {"format": "vesana-library-sig/1", "key_id", "sig", "payload"}. Der Hub
+    # rechnet nie selbst Signaturen — ohne Hülle ist die Version unsichtbar.
+    signed_envelope: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
+    # Ab wann der Stable-Kanal die Version sieht (Tester: sofort nach Signatur).
+    released_all_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     profile: Mapped[CommunityProfile] = relationship(
         "CommunityProfile",

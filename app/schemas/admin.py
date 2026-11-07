@@ -2,37 +2,13 @@
 
 These back the AdminFlag-gated JSON API (``/api/v1/admin/*``). The HTML admin
 pages render their own context, but reuse the same service layer.
-``target_preview`` is a SAFE, short snippet — it never carries downvote reasons,
-tokens or other private signals (see ``app.services.admin``).
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel
-
-
-class ReportItem(BaseModel):
-    """A moderation report as shown to an admin."""
-
-    id: str
-    target_type: str
-    target_id: str
-    reporter_uuid: str
-    reporter_display: str = ""
-    reason: str
-    status: str
-    created_at: datetime
-    target_preview: str
-    target_href: str | None = None
-
-
-class ResolveReportIn(BaseModel):
-    """Body for resolving a report: dismiss it, or remove its target."""
-
-    action: Literal["dismiss", "remove"]
 
 
 class InstanceItem(BaseModel):

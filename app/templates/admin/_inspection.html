@@ -63,7 +63,7 @@
   {% endif %}
   <div class="reg-wrap">
   <table class="reg reg--admin">
-    <thead><tr><th>{{ t('admin.col.version') }}</th><th>{{ t('admin.col.uploaded') }}</th><th>{{ t('admin.insp.checks_n') }}</th><th>{{ t('admin.insp.changelog') }}</th>{% if allow_version_switch is defined and allow_version_switch %}<th class="r"></th>{% endif %}</tr></thead>
+    <thead><tr><th>{{ t('admin.col.version') }}</th><th>{{ t('admin.col.uploaded') }}</th><th>{{ t('admin.insp.checks_n') }}</th><th>{{ t('admin.insp.changelog') }}</th><th>{{ t('admin.insp.library') }}</th>{% if allow_version_switch is defined and allow_version_switch %}<th class="r"></th>{% endif %}</tr></thead>
     <tbody>
     {% for v in versions %}
       <tr>
@@ -71,6 +71,7 @@
         <td class="mono">{{ v.created_at | dt }}</td>
         <td class="mono">{{ (v.bundle_json.get('checks') or []) | length }}</td>
         <td class="prose-sm">{% if v.changelog_md %}{{ v.changelog_md | markdown_safe }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="mono">{% if not v.signed_envelope %}<span class="badge badge--warn">{{ t('admin.insp.unsigned') }}</span>{% elif v.released_all_at %}{{ t('admin.insp.stable_from', at=(v.released_all_at | dt)) }}{% else %}{{ t('admin.insp.tester_only') }}{% endif %}</td>
         {% if allow_version_switch is defined and allow_version_switch %}
         <td class="r act">{% if not v.is_current %}
           <form method="post" action="/admin/profiles/{{ profile.id }}/versions/{{ v.id }}/current" class="inline" data-confirm="{{ t('admin.insp.version_confirm', tag=v.version_tag) }}" data-confirm-ok="{{ t('admin.insp.make_current') }}">{% include "admin/_csrf.html" %}<button class="btn btn--ghost btn--sm" type="submit">{{ t('admin.insp.make_current') }}</button></form>

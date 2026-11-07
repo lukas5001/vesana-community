@@ -15,7 +15,6 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,18 +51,6 @@ def mib_aufloeser(db: Session) -> lint.MibAufloeser:
 
 def pruefe(db: Session, bundle: dict[str, Any]) -> lint.Ergebnis:
     return lint.pruefe_bundle(bundle, mib_aufloeser(db))
-
-
-def pruefe_fuer_upload(db: Session, bundle: dict[str, Any]) -> lint.Ergebnis:
-    """Prüft ein hochgeladenes Bundle; ein Fehler ⇒ 422 mit Klartext je Fund."""
-    ergebnis = pruefe(db, bundle)
-    fehler = ergebnis.fehler
-    if fehler:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Profil-Prüfung: {len(fehler)} Fehler — {lint.kurztext(fehler)}",
-        )
-    return ergebnis
 
 
 def info() -> dict[str, Any]:

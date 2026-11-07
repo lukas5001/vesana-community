@@ -12,32 +12,6 @@
 <section class="ad-section">
   <h2 class="ad-h2">{{ t('admin.dash.tasks') }}</h2>
   <div class="tasks">
-    <a class="task {% if tasks.pending %}task--due{% endif %}" href="/admin/review">
-      <svg><use href="#a-inbox"/></svg>
-      <span class="task__n">{{ tasks.pending }}</span>
-      <span class="task__t">{{ t('admin.dash.task_review') }}</span>
-      <span class="task__go">→</span>
-    </a>
-    {% if tasks.mib_submissions %}
-    <a class="task task--due" href="/admin/mibs">
-      <svg><use href="#a-inbox"/></svg>
-      <span class="task__n">{{ tasks.mib_submissions }}</span>
-      <span class="task__t">{{ t('admin.dash.task_mibs') }}</span>
-      <span class="task__go">→</span>
-    </a>
-    {% endif %}
-    <a class="task {% if tasks.reports %}task--due{% endif %}" href="/admin/moderation">
-      <svg><use href="#a-flag"/></svg>
-      <span class="task__n">{{ tasks.reports }}</span>
-      <span class="task__t">{{ t('admin.dash.task_reports') }}</span>
-      <span class="task__go">→</span>
-    </a>
-    <a class="task {% if tasks.unanswered %}task--soft{% endif %}" href="/admin/questions?state=unanswered">
-      <svg><use href="#a-message"/></svg>
-      <span class="task__n">{{ tasks.unanswered }}</span>
-      <span class="task__t">{{ t('admin.dash.task_unanswered') }}</span>
-      <span class="task__go">→</span>
-    </a>
     {% if not two_fa.enabled %}
     <a class="task task--soft" href="/admin/security">
       <svg><use href="#a-shield"/></svg>
@@ -67,16 +41,6 @@
       <span class="kpi__l">{{ t('admin.dash.downloads') }}</span>
       <span class="kpi__v">{{ stats.downloads_total }}</span>
       <span class="kpi__s">{{ t('admin.dash.imports_n', n=stats.imports_total) }}</span>
-    </div>
-    <a class="kpi" href="/admin/questions">
-      <span class="kpi__l">{{ t('admin.nav.questions') }}</span>
-      <span class="kpi__v">{{ stats.questions_total }}</span>
-      <span class="kpi__s">{{ t('admin.dash.open_n', n=stats.questions_open) }}</span>
-    </a>
-    <div class="kpi">
-      <span class="kpi__l">{{ t('admin.dash.votes') }}</span>
-      <span class="kpi__v">{{ stats.votes_total }}</span>
-      <span class="kpi__s">{{ t('admin.dash.comments_n', n=tasks.comments_total) }}</span>
     </div>
     <a class="kpi" href="/admin/icons">
       <span class="kpi__l">{{ t('admin.nav.icons') }}</span>

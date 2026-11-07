@@ -1,10 +1,18 @@
-"""JSON API for the profile library (browse, detail, versions, bundle)."""
+"""JSON API for the profile library (browse, detail, versions, bundle, signed).
+
+Vesana-Bibliothek (2026-11-07): schreibgeschützter, signierter Katalog. Jede
+Instanz schickt ``X-Vesana-Channel: tester|stable`` (fehlt/unbekannt ⇒ stable);
+welche Version sie sieht, entscheidet allein
+``app.services.profiles.is_released_for``. Die Antwortformen bleiben
+rückwärtskompatibel — ältere Vesana-Instanzen rufen list/detail/bundle weiter.
+"""
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,11 +28,16 @@ from app.schemas import (
     VersionSummary,
     check_preview_from_bundle,
 )
+from app.services import profile_lint as profile_lint_service
 from app.services.profiles import (
     ProfileFilters,
     get_profile,
-    latest_version_tag,
+    is_released_for,
+    latest_released_version,
     list_profiles,
+    normalize_channel,
+    released_profiles,
+    released_versions,
 )
 
 router = APIRouter(prefix="/api/v1/profiles", tags=["profiles"])
@@ -32,7 +45,19 @@ router = APIRouter(prefix="/api/v1/profiles", tags=["profiles"])
 DbDep = Annotated[Session, Depends(get_db)]
 
 
-def _to_summary(profile: CommunityProfile) -> ProfileSummary:
+def get_channel(
+    x_vesana_channel: Annotated[str | None, Header(alias="X-Vesana-Channel")] = None,
+) -> str:
+    return normalize_channel(x_vesana_channel)
+
+
+ChannelDep = Annotated[str, Depends(get_channel)]
+
+
+def _to_summary(
+    profile: CommunityProfile, channel: str, now: datetime | None = None
+) -> ProfileSummary:
+    latest = latest_released_version(profile, channel, now)
     return ProfileSummary(
         id=profile.id,
         name=profile.name,
@@ -54,8 +79,8 @@ def _to_summary(profile: CommunityProfile) -> ProfileSummary:
         requires_api_token=profile.requires_api_token,
         requires_device_api=profile.requires_device_api,
         vesana_min_version=profile.vesana_min_version,
-        latest_version_tag=latest_version_tag(profile),
-        latest_version_id=profile.latest_version_id,
+        latest_version_tag=latest.version_tag if latest is not None else None,
+        latest_version_id=latest.id if latest is not None else None,
         updated_at=profile.updated_at,
     )
 
@@ -69,11 +94,11 @@ def _uploader_display(db: Session, profile: CommunityProfile) -> str:
     return VESANA_TEAM_UPLOADER
 
 
-def _to_detail(db: Session, profile: CommunityProfile) -> ProfileDetail:
-    current = profile.current_version
+def _to_detail(db: Session, profile: CommunityProfile, channel: str) -> ProfileDetail:
+    current = latest_released_version(profile, channel)
     bundle = current.bundle_json if current is not None else None
     return ProfileDetail(
-        **_to_summary(profile).model_dump(),
+        **_to_summary(profile, channel).model_dump(),
         description_md=profile.description_md,
         created_at=profile.created_at,
         uploader=_uploader_display(db, profile),
@@ -86,6 +111,7 @@ def _to_detail(db: Session, profile: CommunityProfile) -> ProfileDetail:
 @router.get("/", response_model=ProfileListResponse, include_in_schema=False)
 def list_profiles_endpoint(
     db: DbDep,
+    channel: ChannelDep,
     q: Annotated[str | None, Query()] = None,
     tier: Annotated[str | None, Query()] = None,
     category: Annotated[str | None, Query()] = None,
@@ -109,63 +135,72 @@ def list_profiles_endpoint(
         limit=limit,
         offset=offset,
     )
-    profiles, total = list_profiles(db, filters)
+    profiles, total = list_profiles(db, filters, channel=channel)
     return ProfileListResponse(
-        items=[_to_summary(p) for p in profiles],
+        items=[_to_summary(p, channel) for p in profiles],
         total=total,
     )
 
 
 @router.get("/match-rules")
-def profile_match_rules(db: DbDep) -> list[dict[str, Any]]:
+def profile_match_rules(db: DbDep, channel: ChannelDep) -> list[dict[str, Any]]:
     """Discovery match_rules of all visible profiles (community-first classifier).
 
     A Vesana instance fetches this to classify discovered devices against the
-    community catalog and suggest a profile to import. Registered BEFORE the
-    ``/{profile_id}`` route so "match-rules" is not read as an id.
+    library and suggest a profile to import. Nur Profile mit einer für den Kanal
+    freigegebenen Version — sonst schlüge die Discovery ein Profil vor, das die
+    Instanz gar nicht laden darf. Registered BEFORE the ``/{profile_id}`` route
+    so "match-rules" is not read as an id.
     """
-    rows = db.execute(
-        select(
-            CommunityProfile.id,
-            CommunityProfile.name,
-            CommunityProfile.tier,
-            CommunityProfile.match_rules,
-        ).where(
-            CommunityProfile.is_removed.is_(False),
-            CommunityProfile.review_status == "approved",
-            CommunityProfile.match_rules.isnot(None),
-        )
-    ).all()
+    rows = released_profiles(
+        db,
+        channel,
+        CommunityProfile.review_status == "approved",
+        CommunityProfile.match_rules.isnot(None),
+    )
     # Defensive: skip rows whose match_rules is an empty/JSON-null value (these
     # deserialize to a falsy Python value) so the classifier never receives a
     # profile it cannot match against.
     return [
-        {"community_id": r.id, "name": r.name, "tier": r.tier, "match_rules": r.match_rules}
-        for r in rows
-        if r.match_rules
+        {"community_id": p.id, "name": p.name, "tier": p.tier, "match_rules": p.match_rules}
+        for p, _version in rows
+        if p.match_rules
     ]
 
 
 @router.get("/{profile_id}", response_model=ProfileDetail)
-def get_profile_endpoint(profile_id: str, db: DbDep) -> ProfileDetail:
-    profile = get_profile(db, profile_id)
+def get_profile_endpoint(profile_id: str, db: DbDep, channel: ChannelDep) -> ProfileDetail:
+    profile = get_profile(db, profile_id, channel)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-    return _to_detail(db, profile)
+    return _to_detail(db, profile, channel)
 
 
 @router.get("/{profile_id}/versions", response_model=list[VersionSummary])
-def list_versions_endpoint(profile_id: str, db: DbDep) -> list[VersionSummary]:
-    profile = get_profile(db, profile_id)
+def list_versions_endpoint(profile_id: str, db: DbDep, channel: ChannelDep) -> list[VersionSummary]:
+    """Nur die für den Kanal freigegebenen Versionen. ``is_current`` heißt hier
+    „aktuelle Version für DEINEN Kanal" (die neueste freigegebene)."""
+    profile = get_profile(db, profile_id, channel)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-    return [VersionSummary.model_validate(v) for v in profile.versions]
+    versions = released_versions(profile, channel)
+    current_id = versions[0].id if versions else None
+    return [
+        VersionSummary(
+            id=v.id,
+            version_tag=v.version_tag,
+            is_current=v.id == current_id,
+            created_at=v.created_at,
+            changelog_md=v.changelog_md,
+        )
+        for v in versions
+    ]
 
 
-@router.get("/{profile_id}/versions/{version_id}/bundle")
-def get_bundle_endpoint(profile_id: str, version_id: str, db: DbDep) -> dict[str, Any]:
-    """Return the raw bundle for Vesana to import, and count the download."""
-    profile = get_profile(db, profile_id)
+def _released_version_or_404(
+    db: Session, profile_id: str, version_id: str, channel: str
+) -> tuple[CommunityProfile, CommunityProfileVersion]:
+    profile = get_profile(db, profile_id, channel)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
     version = db.execute(
@@ -174,9 +209,55 @@ def get_bundle_endpoint(profile_id: str, version_id: str, db: DbDep) -> dict[str
             CommunityProfileVersion.profile_id == profile_id,
         )
     ).scalar_one_or_none()
-    if version is None:
+    # Unsigniert oder für den Kanal (noch) nicht freigegeben ⇒ wie nicht vorhanden.
+    if version is None or not is_released_for(version, channel):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
+    return profile, version
+
+
+def _count_download(db: Session, profile: CommunityProfile) -> None:
     profile.download_count = profile.download_count + 1
     db.add(profile)
     db.commit()
-    return version.bundle_json
+
+
+@router.get("/{profile_id}/versions/{version_id}/bundle")
+def get_bundle_endpoint(
+    profile_id: str, version_id: str, db: DbDep, channel: ChannelDep
+) -> dict[str, Any]:
+    """Legacy: the raw bundle for older Vesana instances, and count the download.
+
+    Nur für Versionen, die für den Kanal freigegeben sind — alte Instanzen
+    schicken keinen Kanal-Kopf und gelten als stable."""
+    profile, version = _released_version_or_404(db, profile_id, version_id, channel)
+    bundle = version.bundle_json
+    _count_download(db, profile)
+    return bundle
+
+
+@router.get("/{profile_id}/versions/{version_id}/signed")
+def get_signed_endpoint(
+    profile_id: str, version_id: str, db: DbDep, channel: ChannelDep
+) -> dict[str, Any]:
+    """Die gespeicherte signierte Hülle der Version, unverändert.
+
+    Die Instanz prüft die Signatur selbst und importiert nur den geprüften
+    ``payload``. Zählt den Download wie ``/bundle``."""
+    profile, version = _released_version_or_404(db, profile_id, version_id, channel)
+    envelope = version.signed_envelope
+    if not envelope:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not signed")
+    _count_download(db, profile)
+    return envelope
+
+
+# Version + Fingerabdruck der Profil-Prüfung (vorher in ``uploads.py``). Vesana
+# vergleicht nachts den eigenen Fingerabdruck damit — bleibt deshalb erhalten.
+lint_router = APIRouter(tags=["profiles"])
+
+
+@lint_router.get("/api/v1/profile-lint")
+def profile_lint_info() -> dict:
+    """Version + Fingerabdruck der Profil-Prüfung. Vesana vergleicht nachts den
+    eigenen Fingerabdruck damit — die wortgleiche Kopie darf nicht abdriften."""
+    return profile_lint_service.info()

@@ -10,7 +10,7 @@ Zwei Fehler derselben Bauart, beide hier festgenagelt:
   danach UNKNOWN-Checks.
 """
 
-from app.services.uploads import _derive_connection_requirements
+from app.services.bundle_check import _derive_connection_requirements
 
 
 def _bundle(*configs, typ: str = "http_json"):

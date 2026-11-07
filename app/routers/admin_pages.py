@@ -1,7 +1,8 @@
 """Server-rendered admin area (Neubau 09/2026).
 
-Sektionen: Übersicht · Review · Profile · Moderation · Fragen · Instanzen ·
-Icons · Protokoll · Sicherheit. Jede Seite hängt an ``require_admin``
+Sektionen: Übersicht · Profile · Instanzen · Icons · MIBs · Protokoll ·
+Sicherheit. (Review, Moderation, Fragen und MIB-Vorschläge sind mit dem Umbau
+zur Vesana-Bibliothek, 2026-11-07, entfallen.) Jede Seite hängt an ``require_admin``
 (Admin-SESSION mit Idle-Ablauf), jeder schreibende Handler zusätzlich an
 ``require_csrf`` und schreibt einen Eintrag ins Admin-Protokoll — in derselben
 Transaktion wie die Änderung.
@@ -18,8 +19,8 @@ from __future__ import annotations
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth import admin_security as sec
@@ -33,7 +34,6 @@ from app.services import admin as admin_service
 from app.services import admin_account
 from app.services import admin_audit as audit
 from app.services import profile_lint as profile_lint_service
-from app.services import uploads as uploads_service
 from app.templating import templates
 from app.version import VERSION
 
@@ -45,10 +45,7 @@ Csrf = Annotated[None, Depends(require_csrf)]
 
 SECTIONS = (
     ("dashboard", "/admin", "home"),
-    ("review", "/admin/review", "inbox"),
     ("profiles", "/admin/profiles", "layers"),
-    ("moderation", "/admin/moderation", "flag"),
-    ("questions", "/admin/questions", "message"),
     ("instances", "/admin/instances", "users"),
     ("icons", "/admin/icons", "image"),
     ("mibs", "/admin/mibs", "tag"),
@@ -61,16 +58,11 @@ SECTIONS = (
 
 
 def _ctx(request: Request, db: Session, active: str, **extra: Any) -> dict:
-    tasks = admin_service.tasks(db)
     return {
         "version": VERSION,
         "active": active,
         "sections": [{"key": key, "href": href, "icon": icon} for key, href, icon in SECTIONS],
-        "badges": {
-            "review": tasks["pending"],
-            "moderation": tasks["reports"],
-            "mibs": tasks["mib_submissions"],
-        },
+        "badges": {},
         "admin_user": request.session.get("admin_user") or "admin",
         "path": request.url.path,
         **extra,
@@ -127,7 +119,6 @@ def admin_dashboard(request: Request, admin: AdminUser, db: DbDep) -> HTMLRespon
         db,
         "dashboard",
         stats=admin_service.stats(db),
-        tasks=admin_service.tasks(db),
         activity=admin_service.activity(db, limit=18),
         recent_audit=audit.recent(db, limit=8),
         system=admin_service.system_info(db),
@@ -136,44 +127,14 @@ def admin_dashboard(request: Request, admin: AdminUser, db: DbDep) -> HTMLRespon
     return templates.TemplateResponse(request, "admin/dashboard.html", context)
 
 
-# ---- Review ----------------------------------------------------------------------
-
-
-@router.get("/admin/review", response_class=HTMLResponse)
-def admin_review(
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    status_filter: Annotated[str | None, Query(alias="status")] = None,
-    q: str | None = None,
-    page: int = 1,
-) -> HTMLResponse:
-    review = status_filter or "pending"
-    result = admin_service.search_profiles(
-        db,
-        q=q,
-        review=None if review == "all" else review,
-        source="community",
-        sort="created",
-        page=page,
-    )
-    items = [uploads_service.to_review_item(db, p) for p in result.items]
-    context = _ctx(
-        request,
-        db,
-        "review",
-        items=items,
-        profiles=result.items,
-        status_filter=review,
-        counts=admin_service.review_counts(db),
-        q=q or "",
-        pager=_pager(request, result),
-    )
-    return templates.TemplateResponse(request, "admin/review.html", context)
+# ---- Profil-Inspektion -----------------------------------------------------------
 
 
 def _profile_inspection(db: Session, profile) -> dict:
-    """Bundle-Inspektion: Checks, Scripts + Fundstellen, Versionen, Uploader."""
+    """Bundle-Inspektion: Checks, Scripts + Fundstellen, Versionen, Uploader.
+
+    Gezeigt wird die als ``is_current`` markierte Version (Kurator-Sicht); was
+    eine Instanz bekommt, entscheidet ``services.profiles.is_released_for``."""
     current = profile.current_version
     bundle = current.bundle_json if current is not None else None
     previews = check_preview_from_bundle(bundle)
@@ -197,68 +158,7 @@ def _profile_inspection(db: Session, profile) -> dict:
         "versions": versions,
         "current": current,
         "bundle_meta": (bundle or {}).get("profile") if isinstance(bundle, dict) else None,
-        "open_reports": admin_service.profile_report_count(db, profile.id),
     }
-
-
-@router.get("/admin/review/{profile_id}", response_class=HTMLResponse)
-def admin_review_detail(
-    profile_id: str, request: Request, admin: AdminUser, db: DbDep
-) -> HTMLResponse:
-    profile = admin_service.get_profile_any(db, profile_id)
-    context = _ctx(request, db, "review", **_profile_inspection(db, profile))
-    return templates.TemplateResponse(request, "admin/review_detail.html", context)
-
-
-@router.post("/admin/review/{profile_id}/approve")
-def admin_review_approve(
-    profile_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    profile = uploads_service.approve(db, profile_id)
-    _log(
-        request,
-        db,
-        admin,
-        "review.approve",
-        target_type="profile",
-        target_id=profile.id,
-        summary=profile.name,
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.approved", name=profile.name)
-    return _back(next, "/admin/review")
-
-
-@router.post("/admin/review/{profile_id}/reject")
-def admin_review_reject(
-    profile_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    reason: Annotated[str, Form()] = "",
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    reason = reason.strip() or "rejected by admin"
-    profile = uploads_service.reject(db, profile_id, reason)
-    _log(
-        request,
-        db,
-        admin,
-        "review.reject",
-        target_type="profile",
-        target_id=profile.id,
-        summary=profile.name,
-        details={"reason": reason},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.rejected", name=profile.name)
-    return _back(next, "/admin/review")
 
 
 # ---- Profile ---------------------------------------------------------------------
@@ -331,7 +231,6 @@ def admin_profile_detail(
         db,
         "profiles",
         **_profile_inspection(db, profile),
-        comments=admin_service.profile_comments(db, profile.id),
         history=audit.list_entries(db, target_type="profile", target_id=profile.id, per_page=20),
         tiers=admin_service.TIERS,
         facets=admin_service.profile_facets(db),
@@ -517,279 +416,6 @@ def admin_profile_version_current(
     return _redirect(f"/admin/profiles/{profile_id}?tab=versions")
 
 
-@router.post("/admin/comments/{comment_id}/remove")
-def admin_comment_remove(
-    comment_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    comment = admin_service.set_comment_removed(db, comment_id, True)
-    _log(
-        request,
-        db,
-        admin,
-        "comment.remove",
-        target_type="comment",
-        target_id=comment.id,
-        summary=admin_service._snippet(comment.body_md),
-        details={"profile_id": comment.profile_id},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.comment_removed")
-    return _back(next, f"/admin/profiles/{comment.profile_id}?tab=comments")
-
-
-@router.post("/admin/comments/{comment_id}/restore")
-def admin_comment_restore(
-    comment_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    comment = admin_service.set_comment_removed(db, comment_id, False)
-    _log(
-        request,
-        db,
-        admin,
-        "comment.restore",
-        target_type="comment",
-        target_id=comment.id,
-        summary=admin_service._snippet(comment.body_md),
-        details={"profile_id": comment.profile_id},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.comment_restored")
-    return _back(next, f"/admin/profiles/{comment.profile_id}?tab=comments")
-
-
-# ---- Moderation ------------------------------------------------------------------
-
-
-@router.get("/admin/moderation", response_class=HTMLResponse)
-def admin_moderation(
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    status_filter: Annotated[str, Query(alias="status")] = "open",
-    page: int = 1,
-) -> HTMLResponse:
-    result = admin_service.list_reports_page(db, status_filter, page=page)
-    context = _ctx(
-        request,
-        db,
-        "moderation",
-        reports=result.items,
-        status_filter=status_filter,
-        counts=admin_service.report_counts(db),
-        pager=_pager(request, result),
-    )
-    return templates.TemplateResponse(request, "admin/moderation.html", context)
-
-
-@router.post("/admin/moderation/{report_id}/resolve")
-def admin_moderation_resolve(
-    report_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    action: Annotated[str, Form()],
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    report = admin_service.resolve_report(db, report_id, action)
-    _log(
-        request,
-        db,
-        admin,
-        f"report.{action}",
-        target_type=report.target_type,
-        target_id=report.target_id,
-        summary=admin_service._snippet(report.reason),
-        details={"report_id": report.id},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.report_" + action)
-    return _back(next, "/admin/moderation")
-
-
-# ---- Fragen & Antworten ----------------------------------------------------------
-
-
-@router.get("/admin/questions", response_class=HTMLResponse)
-def admin_questions(
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    q: str | None = None,
-    state: str | None = None,
-    page: int = 1,
-) -> HTMLResponse:
-    result = admin_service.search_questions(db, q=q, state=state, page=page)
-    context = _ctx(
-        request,
-        db,
-        "questions",
-        questions=result.items,
-        names=result.extra.get("names", {}),
-        counts=admin_service.question_counts(db),
-        state=state or "",
-        q=q or "",
-        pager=_pager(request, result),
-    )
-    return templates.TemplateResponse(request, "admin/questions.html", context)
-
-
-@router.get("/admin/questions/{question_id}", response_class=HTMLResponse)
-def admin_question_detail(
-    question_id: str, request: Request, admin: AdminUser, db: DbDep
-) -> HTMLResponse:
-    question = admin_service.get_question(db, question_id)
-    answers = sorted(question.answers, key=lambda a: (not a.is_accepted, a.created_at))
-    names = admin_service.names_for(
-        db, {question.instance_uuid, *[a.instance_uuid for a in answers]}
-    )
-    context = _ctx(
-        request,
-        db,
-        "questions",
-        question=question,
-        answers=answers,
-        names=names,
-        history=audit.list_entries(db, target_type="question", target_id=question.id, per_page=10),
-    )
-    return templates.TemplateResponse(request, "admin/question_detail.html", context)
-
-
-@router.post("/admin/questions/{question_id}/close")
-def admin_question_close(
-    question_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    reason: Annotated[str, Form()] = "",
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    question = admin_service.close_question(db, question_id, reason)
-    _log(
-        request,
-        db,
-        admin,
-        "question.close",
-        target_type="question",
-        target_id=question.id,
-        summary=question.title_text,
-        details={"reason": question.closed_reason},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.question_closed")
-    return _back(next, f"/admin/questions/{question_id}")
-
-
-@router.post("/admin/questions/{question_id}/reopen")
-def admin_question_reopen(
-    question_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    question = admin_service.reopen_question(db, question_id)
-    _log(
-        request,
-        db,
-        admin,
-        "question.reopen",
-        target_type="question",
-        target_id=question.id,
-        summary=question.title_text,
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.question_reopened")
-    return _back(next, f"/admin/questions/{question_id}")
-
-
-@router.post("/admin/questions/{question_id}/team")
-def admin_question_team(
-    question_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    flag: Annotated[str, Form()] = "true",
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    question = admin_service.set_question_team(db, question_id, flag == "true")
-    _log(
-        request,
-        db,
-        admin,
-        "question.team",
-        target_type="question",
-        target_id=question.id,
-        summary=question.title_text,
-        details={"is_vesana_team": question.is_vesana_team},
-    )
-    db.commit()
-    return _back(next, f"/admin/questions/{question_id}")
-
-
-@router.post("/admin/answers/{answer_id}/delete")
-def admin_answer_delete(
-    answer_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    question = admin_service.delete_answer(db, answer_id)
-    _log(
-        request,
-        db,
-        admin,
-        "answer.delete",
-        target_type="question",
-        target_id=question.id,
-        summary=question.title_text,
-        details={"answer_id": answer_id},
-    )
-    db.commit()
-    _flash(request, "ok", "admin.flash.answer_deleted")
-    return _back(next, f"/admin/questions/{question.id}")
-
-
-@router.post("/admin/answers/{answer_id}/team")
-def admin_answer_team(
-    answer_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    flag: Annotated[str, Form()] = "true",
-    next: Annotated[str | None, Form()] = None,
-) -> RedirectResponse:
-    answer = admin_service.set_answer_team(db, answer_id, flag == "true")
-    _log(
-        request,
-        db,
-        admin,
-        "answer.team",
-        target_type="question",
-        target_id=answer.question_id,
-        summary=admin_service._snippet(answer.body_md),
-        details={"answer_id": answer.id, "is_vesana_team": answer.is_vesana_team},
-    )
-    db.commit()
-    return _back(next, f"/admin/questions/{answer.question_id}")
-
-
 # ---- Instanzen -------------------------------------------------------------------
 
 
@@ -931,114 +557,16 @@ def admin_icons(
 
 @router.get("/admin/mibs", response_class=HTMLResponse)
 def admin_mibs(request: Request, admin: AdminUser, db: DbDep, q: str | None = None) -> HTMLResponse:
-    from app.services import mib_library, mib_submissions
+    from app.services import mib_library
 
-    pending = mib_submissions.list_for_review(db, "pending")
-    decided = [
-        r for r in mib_submissions.list_for_review(db, "all", limit=40) if r.status != "pending"
-    ][:10]
-    names = admin_service.names_for(db, {r.instance_uuid for r in pending + decided})
     context = _ctx(
         request,
         db,
         "mibs",
         overview=mib_library.admin_overview(db, q=q or None),
         q=q or "",
-        submissions=[mib_submissions.to_review_item(r, names) for r in pending],
-        decided=[mib_submissions.to_review_item(r, names) for r in decided],
     )
     return templates.TemplateResponse(request, "admin/mibs.html", context)
-
-
-@router.get("/admin/mibs/submissions/{submission_id}", response_class=HTMLResponse)
-def admin_mib_submission(
-    submission_id: str, request: Request, admin: AdminUser, db: DbDep
-) -> HTMLResponse:
-    from app.services import mib_submissions
-
-    row = mib_submissions.get(db, submission_id)
-    names = admin_service.names_for(db, {row.instance_uuid})
-    context = _ctx(
-        request,
-        db,
-        "mibs",
-        sub=mib_submissions.to_review_item(row, names),
-        insp=mib_submissions.inspection(db, row),
-    )
-    return templates.TemplateResponse(request, "admin/mib_submission.html", context)
-
-
-@router.get("/admin/mibs/submissions/{submission_id}/source", response_class=PlainTextResponse)
-def admin_mib_submission_source(
-    submission_id: str, admin: AdminUser, db: DbDep
-) -> PlainTextResponse:
-    """Der volle Originaltext zum Prüfen der Lizenz — nur für den Admin, nur
-    solange der Vorschlag offen ist (danach ist er gelöscht)."""
-    from app.services import mib_submissions
-
-    row = mib_submissions.get(db, submission_id)
-    if not row.source_text:
-        raise HTTPException(status_code=404, detail="no source text")
-    return PlainTextResponse(
-        row.source_text,
-        headers={
-            "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": f'inline; filename="{row.module}.mib"',
-            "Cache-Control": "no-store",
-        },
-    )
-
-
-@router.post("/admin/mibs/submissions/{submission_id}/approve")
-def admin_mib_submission_approve(
-    submission_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    license: Annotated[str, Form()] = "",
-    license_allows_source: Annotated[str | None, Form()] = None,
-    source_url: Annotated[str, Form()] = "",
-    notes: Annotated[str, Form()] = "",
-) -> RedirectResponse:
-    from app.services import mib_submissions
-
-    if not license.strip():
-        _flash(request, "err", "admin.flash.mib_licence_required")
-        return _redirect(f"/admin/mibs/submissions/{submission_id}")
-    row, module, neu = mib_submissions.approve(
-        db,
-        submission_id,
-        mib_submissions.ApproveInput(
-            license=license,
-            license_allows_source=license_allows_source is not None,
-            source_url=source_url or None,
-            notes=notes or None,
-        ),
-        admin=admin,
-    )
-    mib_submissions.record_approve(db, admin, row, module, neu, ip=client_ip(request))
-    db.commit()
-    _flash(request, "ok", "admin.flash.mib_approved", name=module.module)
-    return _redirect("/admin/mibs")
-
-
-@router.post("/admin/mibs/submissions/{submission_id}/reject")
-def admin_mib_submission_reject(
-    submission_id: str,
-    request: Request,
-    admin: AdminUser,
-    db: DbDep,
-    _csrf: Csrf,
-    reason: Annotated[str, Form()] = "",
-) -> RedirectResponse:
-    from app.services import mib_submissions
-
-    row = mib_submissions.reject(db, submission_id, reason, admin=admin)
-    mib_submissions.record_reject(db, admin, row, ip=client_ip(request))
-    db.commit()
-    _flash(request, "ok", "admin.flash.mib_rejected", name=row.module)
-    return _redirect("/admin/mibs")
 
 
 @router.post("/admin/mibs/{module}/remove")

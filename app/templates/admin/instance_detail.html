@@ -32,9 +32,9 @@
     <h2 class="ad-h2">{{ t('admin.inst.recent') }}</h2>
     {% if not comments and not questions and not answers %}<p class="muted">{{ t('admin.inst.no_activity') }}</p>{% else %}
     <ul class="alog alog--wide">
-      {% for c in comments %}<li><span class="alog__a">{{ t('admin.act.comment') }}</span><a class="alog__s" href="/admin/profiles/{{ c.profile_id }}?tab=comments">{{ c.body_md | truncate(140) }}</a><span class="alog__m">{{ c.created_at | dt }}{% if c.is_removed %} · <span class="badge badge--closed">{{ t('detail.removed') }}</span>{% endif %}</span></li>{% endfor %}
-      {% for qn in questions %}<li><span class="alog__a">{{ t('admin.act.question') }}</span><a class="alog__s" href="/admin/questions/{{ qn.id }}">{{ qn.title_text }}</a><span class="alog__m">{{ qn.created_at | dt }}</span></li>{% endfor %}
-      {% for a in answers %}<li><span class="alog__a">{{ t('admin.act.answer') }}</span><a class="alog__s" href="/admin/questions/{{ a.question_id }}">{{ a.body_md | truncate(140) }}</a><span class="alog__m">{{ a.created_at | dt }}</span></li>{% endfor %}
+      {% for c in comments %}<li><span class="alog__a">{{ t('admin.act.comment') }}</span><span class="alog__s">{{ c.body_md | truncate(140) }}</span><span class="alog__m">{{ c.created_at | dt }}{% if c.is_removed %} · <span class="badge badge--closed">{{ t('detail.removed') }}</span>{% endif %}</span></li>{% endfor %}
+      {% for qn in questions %}<li><span class="alog__a">{{ t('admin.act.question') }}</span><span class="alog__s">{{ qn.title_text }}</span><span class="alog__m">{{ qn.created_at | dt }}</span></li>{% endfor %}
+      {% for a in answers %}<li><span class="alog__a">{{ t('admin.act.answer') }}</span><span class="alog__s">{{ a.body_md | truncate(140) }}</span><span class="alog__m">{{ a.created_at | dt }}</span></li>{% endfor %}
     </ul>
     {% endif %}
 

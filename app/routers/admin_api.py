@@ -6,53 +6,24 @@ while the admin has NO second factor — see ``is_admin_request``). These coexis
 with the HTML admin pages (``app.routers.admin_pages``), which use the admin
 SESSION + CSRF-protected form posts; this JSON API is for programmatic use.
 
-The review-queue endpoints (``/api/v1/admin/review-queue`` + approve/reject)
-already live in ``app.routers.uploads`` and are NOT redefined here.
+Seit dem Umbau zur Vesana-Bibliothek (2026-11-07) entfallen die Endpunkte, die
+nur Upload-Review und Moderation (Meldungen) bedient haben.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.routers.community_interactions import AdminFlag, DbDep
-from app.routers.uploads import _require_admin
+from app.auth.admin_api import AdminFlag, DbDep
+from app.auth.admin_api import require_admin_flag as _require_admin
 from app.schemas.admin import (
     AdminStats,
     BlockIn,
     InstanceItem,
-    ReportItem,
-    ResolveReportIn,
 )
 from app.services import admin as admin_service
 
 router = APIRouter(tags=["admin"])
-
-
-# ---- Moderation: reports ---------------------------------------------------
-
-
-@router.get("/api/v1/admin/reports", response_model=list[ReportItem])
-def list_reports(
-    is_admin: AdminFlag,
-    db: DbDep,
-    status: str = "open",
-) -> list[ReportItem]:
-    """List moderation reports (``?status=open`` default, ``all``, or a status)."""
-    _require_admin(is_admin)
-    return admin_service.list_reports(db, status)
-
-
-@router.post("/api/v1/admin/reports/{report_id}/resolve")
-def resolve_report(
-    report_id: str,
-    payload: ResolveReportIn,
-    is_admin: AdminFlag,
-    db: DbDep,
-) -> dict[str, str]:
-    _require_admin(is_admin)
-    report = admin_service.resolve_report(db, report_id, payload.action)
-    db.commit()
-    return {"status": report.status}
 
 
 # ---- Instances -------------------------------------------------------------
